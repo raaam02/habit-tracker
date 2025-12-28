@@ -3,7 +3,12 @@ import React from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import { Habit } from '@/app/types/types';
 
-function HabitCard({ habit }: { habit: Habit }) {
+interface HabitCardProps {
+  habit: Habit, 
+  handleHabitComplete: () => void
+}
+
+function HabitCard({ habit, handleHabitComplete }: HabitCardProps) {
   return (
     <TouchableOpacity
       key={habit.id.toString()}
@@ -25,6 +30,7 @@ function HabitCard({ habit }: { habit: Habit }) {
       </View>
 
       <TouchableOpacity
+        onPress={handleHabitComplete}
         className={`h-14 w-14 rounded-full items-center justify-center ${
           habit.done ? "bg-emerald-500 shadow-md shadow-emerald-200" : "bg-gray-100 border border-gray-200"
         }`}

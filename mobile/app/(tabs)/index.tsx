@@ -1,13 +1,13 @@
 import { View, Text, ScrollView, TouchableOpacity, Image } from "react-native";
 import { useState } from "react";
-import HabitCard from "../components/habit/HabitCard";
-import MonthlyGrowthChart from "../components/charts/MonthlyGrowthChart";
-import StreakLevelBadge from "../components/charts/StreakLevelBadge";
-import AddHabitSheet from "../components/habit/AddHabitSheet";
-import Card from "../components/ui/Card";
+import MonthlyGrowthChart from "@/components/charts/MonthlyGrowthChart";
+import StreakLevelBadge from "@/components/charts/StreakLevelBadge";
+import AddHabitSheet from "@/components/habit/AddHabitSheet";
+import Card from "@/components/ui/Card";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Habit } from "../types/types";
+import { Habit } from "@/types/habit";
 import { Ionicons } from "@expo/vector-icons";
+import Habits from "@/components/habit/Habits";
 
 const MOCK_HABITS: Habit[] = [
   { 
@@ -50,6 +50,7 @@ const MOCK_HABITS: Habit[] = [
 
 export default function HomeScreen() {
   const [openHabitSheet, setOpenHabitSheet] = useState(false);
+  const [habits, setHabits] = useState<Habit[]>(MOCK_HABITS);
 
   return (
     <>
@@ -107,14 +108,7 @@ export default function HomeScreen() {
           </View>
 
           {/* TODAY HABITS */}
-          <View className="mt-8">
-            <Text className="text-lg font-semibold mb-3">Today</Text>
-            <View className="grid grid-cols-2 gap-2">
-              {MOCK_HABITS.map(habit => (
-                  <HabitCard key={habit.id} habit={habit} />
-              ))}
-            </View>
-          </View>
+          <Habits habits={habits} setHabits={setHabits} />
         </ScrollView>
 
         {/* FLOATING ADD BUTTON */}

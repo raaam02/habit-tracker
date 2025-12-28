@@ -1,5 +1,5 @@
 import { Pressable, Text } from "react-native";
-import { cn } from "@/app/utils/cn";
+import { cn } from "@/utils/cn";
 
 type Variant = "primary" | "outline" | "ghost" | "danger";
 

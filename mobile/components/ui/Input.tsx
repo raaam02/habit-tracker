@@ -1,6 +1,6 @@
 import { TextInput } from 'react-native'
 import React from 'react'
-import { cn } from '@/app/utils/cn'
+import { cn } from '@/utils/cn'
 
 const Input = ({ placeholder, className }: { placeholder: string; className?: string }) => {
   return (

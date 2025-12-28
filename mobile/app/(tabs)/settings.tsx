@@ -43,7 +43,7 @@ const habits = [
   },
 ];
 
-export default function HomeScreen() {
+export default function SettingsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#F7F8FA]">
       <ScrollView className="flex-1 px-6 pb-20" showsVerticalScrollIndicator={false}>

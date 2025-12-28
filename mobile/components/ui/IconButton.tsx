@@ -1,5 +1,5 @@
 import { Pressable } from "react-native";
-import { cn } from "@/app/utils/cn";
+import { cn } from "@/utils/cn";
 
 function IconButton({
   children,
