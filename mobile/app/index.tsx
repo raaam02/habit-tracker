@@ -1,9 +1,5 @@
-import { Text, View } from "react-native";
+import { Redirect } from "expo-router";
 
-export default function Index() {
-  return (
-    <View className="flex-1 items-center justify-center bg-gray-900">
-      <Text className="text-red-500">Welcome to Habit Tracker</Text>
-    </View>
-  );
+export default function RootIndex() {
+  return <Redirect href="/(tabs)" />;
 }
