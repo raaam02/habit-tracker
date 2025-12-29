@@ -1,6 +1,6 @@
 import { View, Text } from 'react-native'
 import React from 'react'
-import { Habit } from '@/app/types/types'
+import { Habit } from '@/types/habit'
 import HabitCard from './HabitCard';
 
 interface HabitsProps {
@@ -22,7 +22,7 @@ const Habits = ({habits, setHabits}: HabitsProps) => {
       <Text className="text-lg font-semibold mb-3">Today</Text>
       <View className="grid grid-cols-2 gap-2">
         {habits.map((habit, idx) => (
-            <HabitCard key={habit.id} habit={habit} handleHabitComplete={() => handleHabitComplete(idx)} />
+            <HabitCard key={idx} habit={habit} handleHabitComplete={() => handleHabitComplete(idx)} />
         ))}
       </View>
     </View>

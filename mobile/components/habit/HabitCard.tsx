@@ -1,7 +1,8 @@
-import { Text, TouchableOpacity, View } from 'react-native'
+import { Pressable, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
 import { Ionicons } from '@expo/vector-icons'
-import { Habit } from '@/app/types/types';
+import { Habit } from '@/types/habit';
+import { router } from 'expo-router';
 
 interface HabitCardProps {
   habit: Habit, 
@@ -14,6 +15,9 @@ function HabitCard({ habit, handleHabitComplete }: HabitCardProps) {
       key={habit.id.toString()}
       className="bg-white p-4 rounded-3xl flex-row items-center justify-between border border-gray-100"
       activeOpacity={0.7}
+      onPress={() => {
+        router.push(`/habit/${habit.id}`);
+      }}
     >
       <View className="flex-row items-center gap-4">
         <View className={`h-12 w-12 rounded-full items-center justify-center ${habit.color}`}>
@@ -29,16 +33,18 @@ function HabitCard({ habit, handleHabitComplete }: HabitCardProps) {
         </View>
       </View>
 
-      <TouchableOpacity
+      <Pressable
         onPress={handleHabitComplete}
-        className={`h-14 w-14 rounded-full items-center justify-center ${
-          habit.done ? "bg-emerald-500 shadow-md shadow-emerald-200" : "bg-gray-100 border border-gray-200"
-        }`}
+        className={`h-14 w-14 rounded-full items-center justify-center
+          bg-${habit.done ? "emerald-500" : "gray-100"}
+          border border-gray-200
+          shadow-md shadow-emerald-200
+        `}
       >
         {habit.done && (
           <Ionicons name="checkmark" size={28} color="white" />
         )}
-      </TouchableOpacity>
+      </Pressable>
     </TouchableOpacity>
   )
 }

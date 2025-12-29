@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MOCK_HABITS } from "@/utils/mock.data";
 
 // Mock Data
 const HISTORY = [
@@ -25,6 +26,8 @@ const CALENDAR_DAYS = [
 export default function HabitDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+
+  const habit = MOCK_HABITS.find((habit) => habit.id === Number(id));
 
   return (
     <View className="flex-1 bg-white">
@@ -49,7 +52,7 @@ export default function HabitDetailScreen() {
                <Text className="text-emerald-700 font-bold text-xs uppercase tracking-wide">Daily Goal</Text>
             </View>
             <Text className="text-3xl font-extrabold text-gray-900 text-center mb-8">
-              Morning{"\n"}Meditation
+              {habit?.name}
             </Text>
 
              {/* Circular Progress Ring Placeholder */}

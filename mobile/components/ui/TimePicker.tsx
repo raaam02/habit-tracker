@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, TouchableOpacity, Platform } from 'react-native'
+import { View, Text, TouchableOpacity, Platform, Pressable } from 'react-native'
 import DateTimePicker from '@react-native-community/datetimepicker'
 
 type TimePickerProps = {
@@ -24,13 +24,12 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange }) => {
 
   return (
     <View className="mb-6">
-      <TouchableOpacity
+      <Pressable
         onPress={() => setShow(true)}
-        activeOpacity={0.7}
         className="border border-border rounded-full px-4 py-3"
       >
         <Text>{formattedTime}</Text>
-      </TouchableOpacity>
+      </Pressable>
 
       {show && (
         <DateTimePicker
