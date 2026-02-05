@@ -11,7 +11,7 @@ function MonthlyGrowthChart() {
           <View key={i} className="items-center flex-1">
             <View
               style={{ height: `${v}%` }}
-              className="w-full bg-primary rounded-xl"
+              className="w-full bg-primary rounded-t-xl rounded-b"
             />
           </View>
         ))}

@@ -14,14 +14,14 @@ const StreakSummary = ({streak}: StreakSummaryProps) => {
   const month = date.toLocaleString('en-us', { month: 'short' });
   const year = date.getFullYear();
   return (
-    <Card>
+    <Card className='bg-card rounded-3xl p-4'>
       <View className="flex-row items-center justify-between">
         <View className='gap-1'>
           <View>
-            <Text className="text-muted text-base">{day}, {dayOfMonth} {month}</Text>
+            <Text className="text-muted-foreground">{day}, {dayOfMonth} {month}</Text>
           </View>
-          <Text className="text-3xl font-bold">{streak} days</Text>
-          <Text className="text-muted">
+          <Text className="text-3xl font-bold text-foreground">{streak} days</Text>
+          <Text className="text-muted-foreground">
             Keep the streak alive 🔥
           </Text>
         </View>

@@ -16,19 +16,17 @@ export default function HomeScreen() {
 
   return (
     <>
-    <SafeAreaView className="flex-1 bg-[#F7F8FA]">
-        <ScrollView className="flex-1 bg-bg px-screen pt-6">
-          {/* HEADER */}
-          <WelcomeHeader user={MOCK_USER} />
-          
-
+    <SafeAreaView className="flex-1 bg-background text-foreground">
+        {/* HEADER */}
+        <WelcomeHeader user={MOCK_USER} />
+        <ScrollView className="p-4" showsVerticalScrollIndicator={false}>
           {/* STREAK SUMMARY */}
-          <StreakSummary streak={14} />
+          <StreakSummary streak={50} />
 
           {/* MONTHLY GROWTH */}
-          <View className="mt-6">
+          <View className="mt-6 bg-card rounded-3xl p-4 pb-2">
             <View className="flex-row justify-between mb-2">
-              <Text className="text-lg font-semibold">Monthly Growth</Text>
+              <Text className="text-lg font-semibold text-card-foreground">Monthly Growth</Text>
               <Text className="text-primary font-medium">View details</Text>
             </View>
             <MonthlyGrowthChart />
@@ -39,14 +37,12 @@ export default function HomeScreen() {
         </ScrollView>
 
         {/* FLOATING ADD BUTTON */}
-        <View className="absolute bottom-4 right-4">
+        <View className="absolute bottom-28 right-2">
           <Pressable
             onPress={() => setOpenHabitSheet(true)}
             className="bg-primary px-6 py-4 rounded-full shadow-card flex-row items-center justify-center"
           >
-            <Text className="text-white text-lg">
-              <Ionicons name="add" size={24} color="white" />
-            </Text>
+            <Ionicons name="add" size={24} color="white" />
           </Pressable>
         </View>
 

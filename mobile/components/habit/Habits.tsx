@@ -19,11 +19,14 @@ const Habits = ({habits, setHabits}: HabitsProps) => {
   }
   return (
     <View className="mt-8">
-      <Text className="text-lg font-semibold mb-3">Today</Text>
+      <Text className="text-lg font-semibold mb-3 text-foreground">Today</Text>
       <View className="grid grid-cols-2 gap-2">
         {habits.map((habit, idx) => (
             <HabitCard key={idx} habit={habit} handleHabitComplete={() => handleHabitComplete(idx)} />
         ))}
+        <View className="h-48 p-5">
+          <Text className="text-center text-muted-foreground/60">No more habits for today</Text>
+        </View>
       </View>
     </View>
   )

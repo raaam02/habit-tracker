@@ -13,7 +13,7 @@ function HabitCard({ habit, handleHabitComplete }: HabitCardProps) {
   return (
     <TouchableOpacity
       key={habit.id.toString()}
-      className="bg-white p-4 rounded-3xl flex-row items-center justify-between border border-gray-100"
+      className="bg-card p-4 rounded-3xl flex-row items-center justify-between"
       activeOpacity={0.7}
       onPress={() => {
         router.push(`/habit/${habit.id}`);
@@ -24,11 +24,11 @@ function HabitCard({ habit, handleHabitComplete }: HabitCardProps) {
           <Ionicons name={habit.icon as any} size={24} color={habit.iconColor} />
         </View>
         <View>
-          <Text className="text-lg font-bold text-gray-900">
+          <Text className="font-bold text-foreground">
             {habit.name}
           </Text>
           <Text className="text-gray-500 font-semibold">
-            <Text className="text-gray-900 font-bold">{habit.streak}</Text> day streak
+            <Text className="text-muted-foreground text-xs font-bold">{habit.streak}</Text> day streak
           </Text>
         </View>
       </View>
@@ -36,9 +36,7 @@ function HabitCard({ habit, handleHabitComplete }: HabitCardProps) {
       <Pressable
         onPress={handleHabitComplete}
         className={`h-14 w-14 rounded-full items-center justify-center
-          bg-${habit.done ? "emerald-500" : "gray-100"}
-          border border-gray-200
-          shadow-md shadow-emerald-200
+          ${habit.done ? "bg-emerald-600" : "bg-muted border border-border"}
         `}
       >
         {habit.done && (

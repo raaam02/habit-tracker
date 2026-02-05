@@ -38,6 +38,24 @@ export const MOCK_HABITS: Habit[] = [
     iconColor: "#7C3AED",
     done: false
   },
+  {
+    id: 5,
+    name: "Yoga",
+    streak: 15,
+    icon: "meditation-outline",
+    color: "bg-amber-100",
+    iconColor: "#D97706",
+    done: true
+  },
+  {
+    id: 6,
+    name: "Yoga",
+    streak: 15,
+    icon: "meditation-outline",
+    color: "bg-amber-100",
+    iconColor: "#D97706",
+    done: true
+  },
 ];
 
 export const MOCK_USER: User = {

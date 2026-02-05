@@ -4,9 +4,9 @@ import { User } from "@/types/user"
 
 const WelcomeHeader = ({user}: {user: User}) => {
   return (
-    <View className="flex-row justify-between items-center mt-6 mb-8">
+    <View className="flex-row justify-between items-center p-4">
       <View className="flex-row items-center space-x-4 gap-4">
-        <View className="h-12 w-12 bg-orange-200 rounded-full items-center justify-center overflow-hidden">
+        <View className="h-12 w-12 rounded-full items-center justify-center overflow-hidden">
           {/* Placeholder Avatar */}
           <Image
             source={{ uri: user.avatar }} 
@@ -14,10 +14,10 @@ const WelcomeHeader = ({user}: {user: User}) => {
           />
         </View>
         <View>
-          <Text className="text-gray-500 text-xs font-medium uppercase tracking-wider">
+          <Text className="text-foreground text-xs font-medium uppercase tracking-wider">
             Welcome Back
           </Text>
-          <Text className="text-xl font-bold text-gray-900">
+          <Text className="text-foreground text-xl font-bold">
             {user.name}
           </Text>
         </View>

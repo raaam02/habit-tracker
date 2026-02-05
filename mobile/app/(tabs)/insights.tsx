@@ -27,13 +27,13 @@ const HABITS_STATUS = [
 
 export default function InsightsScreen() {
   return (
-    <SafeAreaView className="flex-1 bg-[#F7F8FA]">
+    <SafeAreaView className="flex-1 bg-background">
       <ScrollView className="flex-1 px-6 pb-20" showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View className="flex-row justify-between items-center mt-6 mb-6">
-          <TouchableOpacity className="bg-white p-2 rounded-full shadow-sm"><Ionicons name="arrow-back" size={24} color="#374151" /></TouchableOpacity>
-          <Text className="text-gray-400 font-bold tracking-widest uppercase">Insights</Text>
-          <TouchableOpacity className="bg-white p-2 rounded-full shadow-sm"><Ionicons name="calendar-outline" size={24} color="#374151" /></TouchableOpacity>
+          <TouchableOpacity className="bg-foreground p-2 rounded-full shadow-sm"><Ionicons name="arrow-back" size={24} color="#374151" /></TouchableOpacity>
+          <Text className="text-muted-foreground font-bold tracking-widest uppercase">Insights</Text>
+          <TouchableOpacity className="bg-foreground p-2 rounded-full shadow-sm"><Ionicons name="calendar-outline" size={24} color="#374151" /></TouchableOpacity>
         </View>
 
         {/* Main Stats Card */}
@@ -43,7 +43,7 @@ export default function InsightsScreen() {
            <View className="absolute bottom-0 left-10 w-20 h-20 bg-indigo-500 rounded-full opacity-50" />
 
            <View className="items-center mb-8">
-              <View className="bg-indigo-500/50 px-4 py-1.5 rounded-full flex-row items-center mb-4">
+              <View className="bg-indigo-500/50 px-4 py-1.5 rounded-md flex-row items-center mb-4">
                   <Ionicons name="flame" size={16} color="#FCD34D" />
                   <Text className="text-white font-bold text-xs uppercase tracking-wider ml-2">Current Streak</Text>
               </View>
@@ -68,23 +68,23 @@ export default function InsightsScreen() {
         {/* Weekly Focus */}
         <View className="mb-8">
            <View className="flex-row justify-between items-center mb-6">
-              <Text className="text-xl font-bold text-gray-900">Weekly Focus</Text>
+              <Text className="text-xl font-bold text-foreground">Weekly Focus</Text>
               <View className="bg-emerald-50 px-3 py-1 rounded-full flex-row items-center">
                   <Ionicons name="trending-up" size={16} color="#10B981" />
                   <Text className="text-emerald-600 font-bold text-xs ml-1">+12% vs last week</Text>
               </View>
            </View>
 
-           <View className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+           <View className="bg-card p-6 rounded-3xl shadow-sm">
                <View className="flex-row justify-between items-end h-40">
                   {WEEKLY_DATA.map((d, i) => (
                     <View key={i} className="items-center w-8">
                         {/* Bar background */}
-                        <View className="h-full w-3 bg-gray-100 rounded-full absolute bottom-6" />
+                        <View className="h-full w-3 bg-muted rounded-full absolute bottom-6" />
                         {/* Active bar */}
                         <View style={{ height: `${d.val}%` }} className={`w-3 rounded-full mb-6 ${d.color}`} />
                         
-                        <Text className={`text-xs font-bold ${i === 3 ? 'text-gray-900' : 'text-gray-400'}`}>{d.day}</Text>
+                        <Text className={`text-xs font-bold ${i === 3 ? 'text-foreground' : 'text-muted-foreground'}`}>{d.day}</Text>
                     </View>
                   ))}
                </View>
@@ -94,9 +94,9 @@ export default function InsightsScreen() {
         {/* Consistency & Daily Tip */}
         <View className="flex-row gap-4 mb-8">
             {/* Consistency */}
-            <View className="flex-1 bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+            <View className="flex-1 bg-card p-5 rounded-3xl shadow-sm border border-border">
                 <View className="flex-row justify-between items-center mb-4">
-                   <Text className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Consistency</Text>
+                   <Text className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Consistency</Text>
                    <Ionicons name="arrow-forward-outline" size={14} color="#9CA3AF" />
                 </View>
                 {/* Dots Grid */}
@@ -120,19 +120,19 @@ export default function InsightsScreen() {
         {/* Habit Status */}
         <View className="mb-10">
            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-xl font-bold text-gray-900">Habit Status</Text>
-              <Text className="text-indigo-600 font-bold text-xs uppercase">View All</Text>
+              <Text className="text-xl font-bold text-foreground">Habit Status</Text>
+              <Text className="text-indigo-500 font-bold text-sm uppercase">View All</Text>
            </View>
 
-           <View className="space-y-4">
+           <View className="space-y-4 gap-2 ">
                {HABITS_STATUS.map((habit, index) => (
-                  <View key={index} className="bg-white p-4 rounded-3xl flex-row items-center justify-between shadow-sm border border-gray-100">
+                  <View key={index} className="bg-card p-4 rounded-3xl flex-row items-center justify-between shadow-sm">
                       <View className="flex-row items-center gap-4">
                           <View className={`h-12 w-12 rounded-full items-center justify-center ${habit.color}`}>
                              <Ionicons name={habit.icon as any} size={24} color={habit.iconColor} />
                           </View>
                           <View>
-                             <Text className="text-base font-bold text-gray-900">{habit.name}</Text>
+                             <Text className="text-base font-bold text-foreground">{habit.name}</Text>
                              <Text className="text-gray-400 text-xs font-medium">{habit.completed}/{habit.total} days completed</Text>
                           </View>
                       </View>
