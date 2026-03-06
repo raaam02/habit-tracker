@@ -1,13 +1,15 @@
 import React, { useState } from 'react'
 import { View, Text, TouchableOpacity, Platform, Pressable } from 'react-native'
 import DateTimePicker from '@react-native-community/datetimepicker'
+import { cn } from '@/utils/cn'
 
 type TimePickerProps = {
   value: Date
-  onChange: (date: Date) => void
+  onChange: (date: Date) => void,
+  className?: string
 }
 
-const TimePicker: React.FC<TimePickerProps> = ({ value, onChange }) => {
+const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, className }) => {
   const [show, setShow] = useState(false)
 
   const handleChange = (_: any, selectedTime?: Date) => {
@@ -23,12 +25,12 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange }) => {
   })
 
   return (
-    <View className="mb-6">
+    <View className={cn(className)}>
       <Pressable
         onPress={() => setShow(true)}
         className="border border-border rounded-full px-4 py-3"
       >
-        <Text>{formattedTime}</Text>
+        <Text className="text-foreground">{formattedTime}</Text>
       </Pressable>
 
       {show && (

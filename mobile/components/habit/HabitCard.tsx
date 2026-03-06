@@ -36,7 +36,7 @@ function HabitCard({ habit, handleHabitComplete }: HabitCardProps) {
       <Pressable
         onPress={handleHabitComplete}
         className={`h-14 w-14 rounded-full items-center justify-center
-          ${habit.done ? "bg-emerald-600" : "bg-muted border border-border"}
+          ${habit.done ? "bg-emerald-500" : "bg-muted border border-border"}
         `}
       >
         {habit.done && (

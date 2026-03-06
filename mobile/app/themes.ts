@@ -9,7 +9,7 @@ const themes = {
       "--card-foreground": "0 0% 20%",
       "--popover": "0 0% 100%",
       "--popover-foreground": "0 0% 20%",
-      "--primary": "217.2193 91.2195% 59.8039%",
+      "--primary": "243.3962 75.3555% 58.6275%",
       "--primary-foreground": "0 0% 100%",
       "--secondary": "262.1229 83.2558% 57.8431%",
       "--secondary-foreground": "0 0% 100%",

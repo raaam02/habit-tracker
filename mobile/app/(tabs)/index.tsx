@@ -9,10 +9,15 @@ import StreakSummary from "@/components/StreakSummary";
 import WelcomeHeader from "@/components/WelcomeHeader";
 import { MOCK_HABITS, MOCK_USER } from "@/utils/mock.data";
 import { Ionicons } from "@expo/vector-icons";
+import { getHabits } from "@/db/habit.repository";
 
 export default function HomeScreen() {
   const [openHabitSheet, setOpenHabitSheet] = useState(false);
   const [habits, setHabits] = useState<Habit[]>(MOCK_HABITS);
+
+  const habitss = getHabits();
+
+  console.log(habitss);
 
   return (
     <>
