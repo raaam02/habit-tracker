@@ -40,7 +40,7 @@ function BottomSheet({
         backgroundColor: colorScheme === 'dark' ? "hsl(0 0% 5%)" : "hsl(0 0% 100%)",
       }}
     >
-      <BottomSheetView className="bg-background">{children}</BottomSheetView>
+      <BottomSheetView className="bg-background h-full">{children}</BottomSheetView>
     </BottomSheetModal>
   );
 }

@@ -1,3 +1,5 @@
+import { color } from "@/components/IconPicker";
+
 export type Habit = {
     id: number;
     name: string;
@@ -11,11 +13,20 @@ export type Habit = {
 export type HabitInput = {
   id: string;
   name: string;
+
+  icon: string;
+  colorName: string
+  color: string
+  bgColor: string
+
   startDate: string;
   reminderTime: string;
+
   duration?: number;
+
   frequency: number;
   days: number[];
+
   reminderEnabled: boolean;
 };
 

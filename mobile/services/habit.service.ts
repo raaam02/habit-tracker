@@ -6,6 +6,9 @@ export function createHabit(data: Omit<HabitInput, "id">) {
   const habit: HabitInput = {
     id: randomUUID(),
     ...data,
+    colorName: data.colorName,
+    color: data.color,
+    bgColor: data.bgColor,
   };
 
   insertHabit(habit);

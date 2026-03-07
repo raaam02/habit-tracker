@@ -4,8 +4,6 @@ import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSequence,
-  withTiming,
 } from "react-native-reanimated";
 
 import BottomSheet from "../ui/BottomSheet";
@@ -17,9 +15,10 @@ import SegmentedControl from "../ui/SegmentControl";
 import { haptic } from "@/utils/haptic";
 import { ScrollView } from "react-native-gesture-handler";
 import { createHabit } from "@/services/habit.service";
-
-const DAYS_OF_WEEK = ["S", "M", "T", "W", "T", "F", "S"];
-const FREQUENCY_OPTIONS = ["Daily", "Weekly", "Monthly", "Yearly"];
+import { shakeAnimation } from "@/utils/animation";
+import { Ionicons } from "@expo/vector-icons";
+import IconPicker from "../IconPicker";
+import { COLORS, DAYS_OF_WEEK, FREQUENCY_OPTIONS } from "@/utils/constants";
 
 function AddHabitSheet({
   open,
@@ -39,7 +38,11 @@ function AddHabitSheet({
 
   const [reminderEnabled, setReminderEnabled] = useState(true);
 
+  const [icon, setIcon] = useState("book");
+  const [color, setColor] = useState(COLORS[2]);
+
   const [error, setError] = useState("");
+  const [showIconPicker, setShowIconPicker] = useState(false);
 
   const shake = useSharedValue(0);
 
@@ -57,6 +60,7 @@ function AddHabitSheet({
       setReminderEnabled(true);
       setStartDate(new Date());
       setReminderTime(new Date());
+      setShowIconPicker(false)
       setError("");
     }
   }, [open]);
@@ -66,19 +70,17 @@ function AddHabitSheet({
       setError("Habit name is required");
       haptic.notificationError();
 
-      shake.value = withSequence(
-        withTiming(-6, { duration: 40 }),
-        withTiming(6, { duration: 40 }),
-        withTiming(-6, { duration: 40 }),
-        withTiming(6, { duration: 40 }),
-        withTiming(0, { duration: 40 })
-      );
+      shake.value = shakeAnimation(6);
 
       return;
     }
 
     const habit = createHabit({
       name: habitName.trim(),
+      icon: icon,
+      colorName: color.name,
+      color: color.color,
+      bgColor: color.bgColor,
       startDate: startDate.toISOString(),
       reminderTime: reminderTime.toISOString(),
       duration: Number(duration),
@@ -94,14 +96,46 @@ function AddHabitSheet({
 
   return (
     <BottomSheet open={open} onClose={onClose}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-      <View className="flex-1 gap-4 px-6 pb-6">
+      <View className="flex-1 gap-6 px-6 pb-6">
+        {/* Habit Icon */}
+        <View>
+          <View className="flex-row justify-center mt-4">
+            <Pressable
+              className={`w-24 h-24 rounded-full bg-muted items-center justify-center`}
+              style={{
+                backgroundColor: color.bgColor
+              }}
+              onPress={() => {
+                setShowIconPicker(!showIconPicker);
+                haptic.light();
+              }}
+            >
+              <Ionicons name={icon as any} size={32} color={color.color} />
+              <View className="absolute size-8 rounded-full bg-muted p-1 bottom-0 right-0 items-center justify-center">
+                <Ionicons name="pencil-sharp" size={16} color="white" />
+              </View>
+            </Pressable>
+          </View>
+        </View>
+
+        {showIconPicker && (
+            <IconPicker
+              onSelectIcon={setIcon}
+              onSelectColor={setColor}
+              onClose={setShowIconPicker}
+              color={color}
+              icon={icon}
+              className="absolute start-6 top-32 z-10"
+            />
+        )}
+
         {/* Habit Name */}
         <View>
           <Animated.View style={animatedStyle}>
             <BottomSheetTextInput
+              autoFocus
               placeholder="Habit Name"
-              className="px-4 py-4 text-lg text-foreground placeholder:text-muted-foreground"
+              className="text-lg text-foreground placeholder:text-muted-foreground"
               value={habitName}
               onChangeText={(text) => {
                 setHabitName(text);
@@ -115,40 +149,9 @@ function AddHabitSheet({
           )}
         </View>
 
-        {/* Start Date */}
-        <View>
-          <Text className="text-foreground mb-1">Start Date</Text>
-          <DatePicker value={startDate} onChange={setStartDate} />
-        </View>
-
-        {/* Duration */}
-        <View>
-          <Text className="text-foreground mb-1">Goal Duration</Text>
-
-          <View className="flex-row items-center gap-2">
-            <TextInput
-              keyboardType="numeric"
-              placeholder="10"
-              className="px-6 py-2 text-lg w-24 border border-border rounded-full text-foreground placeholder:text-muted-foreground"
-              value={duration}
-              maxLength={1080}
-              onChangeText={(text) => {
-                const value = Number(text);
-                if (value > 1080) {
-                  setDuration("1080");
-                } else {
-                  setDuration(text);
-                }
-              }}
-            />
-
-            <Text className="text-foreground text-lg">minutes</Text>
-          </View>
-        </View>
-
         {/* Frequency */}
         <View>
-          <Text className="text-foreground mb-1">Repeat</Text>
+          {/* <Text className="text-foreground mb-1">Repeat</Text> */}
           <SegmentedControl
             options={FREQUENCY_OPTIONS}
             valueIndex={frequency}
@@ -159,9 +162,9 @@ function AddHabitSheet({
         {/* Weekly days */}
         {frequency === 1 && (
           <View>
-            <Text className="text-foreground mb-1">Days of week</Text>
+            <Text className="text-foreground mb-2">Days of week</Text>
 
-            <View className="flex-row gap-2">
+            <View className="flex-row gap-4">
               {DAYS_OF_WEEK.map((day, index) => {
                 const selected = days.includes(index);
 
@@ -174,6 +177,7 @@ function AddHabitSheet({
                       } else {
                         setDays([...days, index]);
                       }
+                      haptic.light()
                     }}
                     className={`w-10 h-10 rounded-full items-center justify-center ${
                       selected ? "bg-primary" : "bg-border"
@@ -204,31 +208,52 @@ function AddHabitSheet({
         )}
 
         {/* Reminder Toggle */}
-        <View className="flex-row items-center justify-between">
+        {/* <View className="flex-row items-center justify-between">
           <Text className="text-foreground">Reminder</Text>
 
           <Switch
             value={reminderEnabled}
             onValueChange={setReminderEnabled}
           />
-        </View>
+        </View> */}
 
-        {/* Reminder Time */}
-        {reminderEnabled && (
-          <View>
-            <Text className="text-foreground mb-1">Reminder Time</Text>
+        {/* Duration */}
+        <View className="flex-row justify-between mt-2">
+          {/* <Text className="text-foreground mb-1">Goal Duration</Text> */}
+          <View className="flex-row items-center gap-2">
+            <TextInput
+              keyboardType="numeric"
+              placeholder="10"
+              className="px-6 py-2 text-lg w-20 border border-border rounded-full text-foreground placeholder:text-muted-foreground"
+              value={duration}
+              maxLength={1080}
+              onChangeText={(text) => {
+                const value = parseInt(text || "0")
+                
+                if (value > 1080) {
+                  setDuration("1080")
+                } else {
+                  setDuration(text.replace(/[^0-9]/g, ""))
+                }
+              }}
+            />
+            <Text className="text-foreground text-lg">minutes</Text>
+          </View>
+          
+          {/* Reminder Time */}
+          <View className="flex-row gap-2 items-center">
+            <Text className="text-foreground mb-1">On</Text>
             <TimePicker value={reminderTime} onChange={setReminderTime} />
           </View>
-        )}
+        </View>
 
         {/* Submit */}
-        <Button
-          className="mt-4"
-          label="Create Habit"
-          onPress={submitHabit}
-        />
       </View>
-      </ScrollView>
+      <Button
+        className="mb-4"
+        label="Create Habit"
+        onPress={submitHabit}
+      />
     </BottomSheet>
   );
 }

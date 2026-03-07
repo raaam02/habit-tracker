@@ -10,6 +10,7 @@ import WelcomeHeader from "@/components/WelcomeHeader";
 import { MOCK_HABITS, MOCK_USER } from "@/utils/mock.data";
 import { Ionicons } from "@expo/vector-icons";
 import { getHabits } from "@/db/habit.repository";
+import { haptic } from "@/utils/haptic";
 
 export default function HomeScreen() {
   const [openHabitSheet, setOpenHabitSheet] = useState(false);
@@ -44,7 +45,10 @@ export default function HomeScreen() {
         {/* FLOATING ADD BUTTON */}
         <View className="absolute bottom-28 right-2">
           <Pressable
-            onPress={() => setOpenHabitSheet(true)}
+            onPress={() => {
+              setOpenHabitSheet(true)
+              haptic.light()
+            }}
             className="bg-primary px-6 py-4 rounded-full shadow-card flex-row items-center justify-center"
           >
             <Ionicons name="add" size={24} color="white" />

@@ -7,6 +7,10 @@ export function initDatabase() {
     CREATE TABLE IF NOT EXISTS habits (
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL,
+      icon TEXT,
+      colorName TEXT,
+      color TEXT,
+      bgColor TEXT,
       startDate TEXT,
       reminderTime TEXT,
       duration INTEGER,

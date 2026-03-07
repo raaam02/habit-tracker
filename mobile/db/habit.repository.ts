@@ -4,11 +4,15 @@ import { HabitInput } from "@/types/habit";
 export function insertHabit(habit: HabitInput) {
   db.runSync(
     `INSERT INTO habits 
-    (id, name, startDate, reminderTime, duration, frequency, days, reminderEnabled)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    (id, name, icon, colorName, color, bgColor, startDate, reminderTime, duration, frequency, days, reminderEnabled)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       habit.id,
       habit.name,
+      habit.icon,
+      habit.colorName,
+      habit.color,
+      habit.bgColor,
       habit.startDate,
       habit.reminderTime,
       habit.duration ?? 0,
