@@ -21,9 +21,11 @@ import IconPicker from "../IconPicker";
 import { COLORS, DAYS_OF_WEEK, FREQUENCY_OPTIONS } from "@/utils/constants";
 
 function AddHabitSheet({
+  loadHabits,
   open,
   onClose,
 }: {
+  loadHabits: () => void
   open: boolean;
   onClose: () => void;
 }) {
@@ -90,6 +92,7 @@ function AddHabitSheet({
     });
 
     console.log("New Habit:", habit);
+    loadHabits()
 
     onClose();
   };

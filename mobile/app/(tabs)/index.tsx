@@ -1,9 +1,9 @@
-import { View, Text, ScrollView, Pressable } from "react-native";
-import { useState } from "react";
+import { View, Text, ScrollView, Pressable, FlatList } from "react-native";
+import { useEffect, useState } from "react";
 import MonthlyGrowthChart from "@/components/charts/MonthlyGrowthChart";
 import AddHabitSheet from "@/components/habit/AddHabitSheet";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Habit } from "@/types/habit";
+import { Habit, HabitInput } from "@/types/habit";
 import Habits from "@/components/habit/Habits";
 import StreakSummary from "@/components/StreakSummary";
 import WelcomeHeader from "@/components/WelcomeHeader";
@@ -11,36 +11,63 @@ import { MOCK_HABITS, MOCK_USER } from "@/utils/mock.data";
 import { Ionicons } from "@expo/vector-icons";
 import { getHabits } from "@/db/habit.repository";
 import { haptic } from "@/utils/haptic";
+import HabitCard from "@/components/habit/HabitCard";
 
 export default function HomeScreen() {
   const [openHabitSheet, setOpenHabitSheet] = useState(false);
-  const [habits, setHabits] = useState<Habit[]>(MOCK_HABITS);
+  const [habits, setHabits] = useState<HabitInput[]>([]);
 
-  const habitss = getHabits();
+  const loadHabits = () => {
+    const data = getHabits()
+    setHabits(data)
+  }
 
-  console.log(habitss);
+  useEffect(() => {
+    loadHabits()
+  }, [])
+  
 
   return (
     <>
     <SafeAreaView className="flex-1 bg-background text-foreground">
-        {/* HEADER */}
-        <WelcomeHeader user={MOCK_USER} />
-        <ScrollView className="p-4" showsVerticalScrollIndicator={false}>
-          {/* STREAK SUMMARY */}
-          <StreakSummary streak={50} />
+      <WelcomeHeader user={MOCK_USER} />
+      {habits.length > 0 ? (
+        <FlatList
+          data={habits}
+          keyExtractor={(item) => item.id.toString()}
+          className="px-4 rounded-xl"
+          renderItem={({ item }) => <HabitCard habit={item} loadHabits={loadHabits} />}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <>
+              <View>
+                {/* STREAK SUMMARY */}
+                <StreakSummary streak={50} />
 
-          {/* MONTHLY GROWTH */}
-          <View className="mt-6 bg-card rounded-3xl p-4 pb-2">
-            <View className="flex-row justify-between mb-2">
-              <Text className="text-lg font-semibold text-card-foreground">Monthly Growth</Text>
-              <Text className="text-primary font-medium">View details</Text>
-            </View>
-            <MonthlyGrowthChart />
-          </View>
-
-          {/* TODAY HABITS */}
-          <Habits habits={habits} setHabits={setHabits} />
-        </ScrollView>
+                {/* MONTHLY GROWTH */}
+                <View className="mt-6 mb-4 bg-card rounded-3xl p-4 pb-2">
+                  <View className="flex-row justify-between mb-2">
+                    <Text className="text-lg font-semibold text-card-foreground">Monthly Growth</Text>
+                    <Text className="text-primary font-medium">View details</Text>
+                  </View>
+                  <MonthlyGrowthChart />
+                </View>
+              </View>
+            </>
+          }
+          ListFooterComponent={
+            <>
+              <View className="h-48 p-5">
+                <Text className="text-center text-muted-foreground/60">That's it for today</Text>
+              </View>
+            </>
+          }
+        />
+      ) : (
+        <View className="h-48 p-5">
+          <Text className="text-center text-muted-foreground/60">No habits found</Text>
+        </View>
+      )}
 
         {/* FLOATING ADD BUTTON */}
         <View className="absolute bottom-28 right-2">
@@ -55,8 +82,54 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <AddHabitSheet open={openHabitSheet} onClose={() => setOpenHabitSheet(false)} />
+        <AddHabitSheet loadHabits={loadHabits} open={openHabitSheet} onClose={() => setOpenHabitSheet(false)} />
       </SafeAreaView>
     </>
   );
 }
+
+// import { markHabitDone } from "@/services/habit-log.service";
+// import { calculateCurrentStreak } from "@/services/streak.service";
+// import HabitCard from "@/components/habit/HabitCard";
+
+// export function HabitCardd({ habit }) {
+//   const streak = calculateCurrentStreak(habit.id);
+
+//   const handleDone = () => {
+//     markHabitDone(habit.id);
+//     haptic.notificationSuccess();
+//   };
+
+//   return (
+//     <View
+//       className="p-4 rounded-xl flex-row items-center justify-between"
+//       // style={{ backgroundColor: habit.bgColor }}
+//     >
+//       <View className="flex-row items-center gap-3">
+//         <View
+//           className="w-10 h-10 rounded-full items-center justify-center"
+//           style={{ backgroundColor: "#fff" }}
+//         >
+//           <Ionicons name={habit.icon} size={20} color={habit.color} />
+//         </View>
+
+//         <View>
+//           <Text className="text-base font-semibold text-foreground">
+//             {habit.name}
+//           </Text>
+
+//           <Text className="text-sm text-muted-foreground">
+//             🔥 {streak} day streak
+//           </Text>
+//         </View>
+//       </View>
+
+//       <Pressable
+//         onPress={handleDone}
+//         className="w-10 h-10 rounded-full bg-primary items-center justify-center"
+//       >
+//         <Ionicons name="checkmark" size={20} color="white" />
+//       </Pressable>
+//     </View>
+//   );
+// }

@@ -32,3 +32,19 @@ export function getHabits(): HabitInput[] {
     reminderEnabled: !!row.reminderEnabled,
   }));
 }
+
+export function getHabitById(id: string): HabitInput | null {
+  const row: any = db.getFirstSync(`SELECT * FROM habits WHERE id = ?`, [id]);
+
+  if (!row) return null;
+
+  return {
+    ...row,
+    days: JSON.parse(row.days),
+    reminderEnabled: !!row.reminderEnabled,
+  };
+}
+
+export function destroyHabit(id: string) {
+  db.runSync(`DELETE FROM habits WHERE id = ?`, [id]);
+}
