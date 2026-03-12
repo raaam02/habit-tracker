@@ -1,4 +1,4 @@
-import { destroyHabit, insertHabit } from "@/db/habit.repository";
+import { destroyHabit, insertHabit, updateHabitData } from "@/db/habit.repository";
 import { HabitInput } from "@/types/habit";
 import { randomUUID } from "expo-crypto";
 
@@ -12,6 +12,12 @@ export function createHabit(data: Omit<HabitInput, "id">) {
   };
 
   insertHabit(habit);
+
+  return habit;
+}
+
+export function updateHabit(habit: HabitInput) {
+  updateHabitData(habit);
 
   return habit;
 }

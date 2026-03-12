@@ -16,6 +16,7 @@ import HabitCard from "@/components/habit/HabitCard";
 export default function HomeScreen() {
   const [openHabitSheet, setOpenHabitSheet] = useState(false);
   const [habits, setHabits] = useState<HabitInput[]>([]);
+  const [editHabit, setEditHabit] = useState<HabitInput | null>(null);
 
   const loadHabits = () => {
     const data = getHabits()
@@ -36,7 +37,7 @@ export default function HomeScreen() {
           data={habits}
           keyExtractor={(item) => item.id.toString()}
           className="px-4 rounded-xl"
-          renderItem={({ item }) => <HabitCard habit={item} loadHabits={loadHabits} />}
+          renderItem={({ item }) => <HabitCard habit={item} loadHabits={loadHabits} setEditHabit={setEditHabit} setOpenHabitSheet={setOpenHabitSheet} />}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <>
@@ -82,7 +83,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <AddHabitSheet loadHabits={loadHabits} open={openHabitSheet} onClose={() => setOpenHabitSheet(false)} />
+        <AddHabitSheet habit={editHabit} loadHabits={loadHabits} open={openHabitSheet} onClose={() => {setOpenHabitSheet(false); setEditHabit(null)}} />
       </SafeAreaView>
     </>
   );

@@ -14,21 +14,26 @@ import SegmentedControl from "../ui/SegmentControl";
 
 import { haptic } from "@/utils/haptic";
 import { ScrollView } from "react-native-gesture-handler";
-import { createHabit } from "@/services/habit.service";
+import { createHabit, updateHabit } from "@/services/habit.service";
 import { shakeAnimation } from "@/utils/animation";
 import { Ionicons } from "@expo/vector-icons";
 import IconPicker from "../IconPicker";
 import { COLORS, DAYS_OF_WEEK, FREQUENCY_OPTIONS } from "@/utils/constants";
+import { HabitInput } from "@/types/habit";
 
 function AddHabitSheet({
+  habit,
   loadHabits,
   open,
   onClose,
 }: {
-  loadHabits: () => void
+  habit?: HabitInput | null,
+  loadHabits?: () => void
   open: boolean;
   onClose: () => void;
 }) {
+  const [isEdit, setIsEdit] = useState(false);
+
   const [habitName, setHabitName] = useState("");
   const [startDate, setStartDate] = useState<Date>(new Date());
   const [reminderTime, setReminderTime] = useState<Date>(new Date());
@@ -55,6 +60,7 @@ function AddHabitSheet({
   // Reset form when sheet closes
   useEffect(() => {
     if (!open) {
+      setIsEdit(false);
       setHabitName("");
       setDuration("10");
       setFrequency(0);
@@ -64,6 +70,23 @@ function AddHabitSheet({
       setReminderTime(new Date());
       setShowIconPicker(false)
       setError("");
+    }
+
+    if (habit) {
+      setIsEdit(true);
+      setHabitName(habit.name);
+      setDuration(habit.duration?.toString() || "10");
+      setFrequency(habit.frequency);
+      setDays(habit.days);
+      setReminderEnabled(habit.reminderEnabled);
+      setStartDate(new Date(habit.startDate));
+      setReminderTime(new Date(habit.reminderTime));
+      setIcon(habit.icon);
+      setColor({
+        name: habit.colorName,
+        color: habit.color,
+        bgColor: habit.bgColor,
+      });
     }
   }, [open]);
 
@@ -77,22 +100,42 @@ function AddHabitSheet({
       return;
     }
 
-    const habit = createHabit({
-      name: habitName.trim(),
-      icon: icon,
-      colorName: color.name,
-      color: color.color,
-      bgColor: color.bgColor,
-      startDate: startDate.toISOString(),
-      reminderTime: reminderTime.toISOString(),
-      duration: Number(duration),
-      frequency,
-      days,
-      reminderEnabled,
-    });
+    if (isEdit && habit) {
+      const updatedHabit = updateHabit({
+        id: habit.id,
+        name: habitName.trim(),
+        icon: icon,
+        colorName: color.name,
+        color: color.color,
+        bgColor: color.bgColor,
+        startDate: startDate.toISOString(),
+        reminderTime: reminderTime.toISOString(),
+        duration: Number(duration),
+        frequency,
+        days,
+        reminderEnabled,
+      });
 
-    console.log("New Habit:", habit);
-    loadHabits()
+      console.log("Updated Habit:", updatedHabit);
+    } else {
+      const newHabit = createHabit({
+        name: habitName.trim(),
+        icon: icon,
+        colorName: color.name,
+        color: color.color,
+        bgColor: color.bgColor,
+        startDate: startDate.toISOString(),
+        reminderTime: reminderTime.toISOString(),
+        duration: Number(duration),
+        frequency,
+        days,
+        reminderEnabled,
+      });
+
+      console.log("New Habit:", newHabit);
+    }
+
+    loadHabits && loadHabits()
 
     onClose();
   };

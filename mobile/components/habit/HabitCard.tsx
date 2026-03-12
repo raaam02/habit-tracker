@@ -11,11 +11,13 @@ import { deleteHabit } from '@/services/habit.service'
 import ConfirmModal from '../ui/ConfirmModal'
 
 interface HabitCardProps {
-  habit: HabitInput
-  loadHabits: () => void
+  habit: HabitInput,
+  loadHabits: () => void,
+  setEditHabit: (habit: HabitInput) => void,
+  setOpenHabitSheet: (open: boolean) => void,
 }
 
-function HabitCard({ habit, loadHabits }: HabitCardProps) {
+function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet }: HabitCardProps) {
 
   const streak = calculateCurrentStreak(habit.id)
   const [running, setRunning] = useState(false)
@@ -40,9 +42,16 @@ function HabitCard({ habit, loadHabits }: HabitCardProps) {
     haptic.light()
   }
 
+  const handleEdit = () => {
+    setMenuOpen(false)
+    setEditHabit(habit)
+    setOpenHabitSheet(true)
+    haptic.light()
+  }
+
   const HabitLongPressMenus = [
     { name: "Pin", icon: "pin", color: "white", action: () => { } },
-    { name: "Edit", icon: "pencil", color: "white", action: () => { } },
+    { name: "Edit", icon: "pencil", color: "white", action: () => { handleEdit() } },
     { name: "Archive", icon: "archive", color: "white", action: () => { } },
     { name: "Delete", icon: "delete", color: "#e44444", action: () => { handleDelete() } }
   ]

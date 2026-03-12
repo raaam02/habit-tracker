@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity, StatusBar } from "react-native";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -12,6 +12,7 @@ import { DAYS_OF_WEEK } from "@/utils/constants";
 import Popover from "@/components/ui/Popover";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { deleteHabit } from "@/services/habit.service";
+import AddHabitSheet from "@/components/habit/AddHabitSheet";
 
 const HISTORY = [
   {
@@ -38,9 +39,10 @@ export default function HabitDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
 
-  const menuRef = React.useRef<View>(null);
-  const [menuOpen, setMenuOpen] = React.useState(false);
-  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const menuRef = useRef<View>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [openHabitSheet, setOpenHabitSheet] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const habitId = id.toString();
   const habit = getHabitById(habitId);
@@ -66,9 +68,9 @@ export default function HabitDetailScreen() {
   }
 
   const MenuItems = [
-    { id: 1, title: "Edit", icon: "pencil", color: "#ffffff", action: () => {}},
+    { id: 1, title: "Edit", icon: "pencil", color: "#ffffff", action: () => handleEdit()},
     { id: 2, title: "Archive", icon: "archive", color: "#ffffff", action: () => {}},
-    { id: 3, title: "Delete", icon: "trash", color: "#e52929", action: () => { handleDelete() }},
+    { id: 3, title: "Delete", icon: "trash", color: "#e52929", action: () => handleDelete()},
   ];
 
   if (!habit) {
@@ -77,6 +79,12 @@ export default function HabitDetailScreen() {
         <Text>Habit not found</Text>
       </View>
     );
+  }
+
+  const handleEdit = () => {
+    setMenuOpen(false)
+    setOpenHabitSheet(true)
+    haptic.light()
   }
 
   return (
@@ -342,6 +350,8 @@ export default function HabitDetailScreen() {
           }}
           onCancel={() => setConfirmDelete(false)}
         />
+
+        <AddHabitSheet habit={habit} open={openHabitSheet} onClose={() => setOpenHabitSheet(false)} />
       </SafeAreaView>
     </View>
   );

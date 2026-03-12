@@ -23,6 +23,28 @@ export function insertHabit(habit: HabitInput) {
   );
 }
 
+export function updateHabitData(habit: HabitInput) {
+  db.runSync(
+    `UPDATE habits 
+    SET name = ?, icon = ?, colorName = ?, color = ?, bgColor = ?, startDate = ?, reminderTime = ?, duration = ?, frequency = ?, days = ?, reminderEnabled = ?
+    WHERE id = ?`,
+    [
+      habit.name,
+      habit.icon,
+      habit.colorName,
+      habit.color,
+      habit.bgColor,
+      habit.startDate,
+      habit.reminderTime,
+      habit.duration ?? 0,
+      habit.frequency,
+      JSON.stringify(habit.days),
+      habit.reminderEnabled ? 1 : 0,
+      habit.id,
+    ]
+  );
+}
+
 export function getHabits(): HabitInput[] {
   const rows = db.getAllSync(`SELECT * FROM habits`);
 
