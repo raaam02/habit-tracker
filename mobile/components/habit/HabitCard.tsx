@@ -15,9 +15,10 @@ interface HabitCardProps {
   loadHabits: () => void,
   setEditHabit: (habit: HabitInput) => void,
   setOpenHabitSheet: (open: boolean) => void,
+  startTimer: (habit: HabitInput) => void
 }
 
-function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet }: HabitCardProps) {
+function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTimer }: HabitCardProps) {
 
   const streak = calculateCurrentStreak(habit.id)
   const [running, setRunning] = useState(false)
@@ -32,7 +33,7 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet }: Habit
   }
 
   const handleTimer = () => {
-    setRunning(!running)
+    startTimer(habit)
     haptic.light()
   }
 

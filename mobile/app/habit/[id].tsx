@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity, StatusBar } from "react-native";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -13,6 +13,7 @@ import Popover from "@/components/ui/Popover";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { deleteHabit } from "@/services/habit.service";
 import AddHabitSheet from "@/components/habit/AddHabitSheet";
+import { HabitInput } from "@/types/habit";
 
 const HISTORY = [
   {
@@ -40,18 +41,28 @@ export default function HabitDetailScreen() {
   const { id } = useLocalSearchParams();
 
   const menuRef = useRef<View>(null);
+  const [habit, setHabit] = useState<HabitInput | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openHabitSheet, setOpenHabitSheet] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const habitId = id.toString();
-  const habit = getHabitById(habitId);
+  // const habit = getHabitById(habitId);
   const streak = calculateCurrentStreak(habitId);
 
   const handleCheckIn = () => {
     markHabitDone(habitId);
     haptic.notificationSuccess();
   };
+
+  const loadHabit = () => {
+    const habit = getHabitById(habitId);
+    setHabit(habit);
+  }
+
+  useEffect(() => {
+    loadHabit();
+  }, [habitId]);
   
   // Get Dates of Current Week i.e. If today is 2026-03-10 then get dates from start of week to end of week i.e. 2026-03-09 to 2026-03-15
   const datesOfCurrentWeek = Array.from({ length: 7 }, (_, i) => {
@@ -67,6 +78,12 @@ export default function HabitDetailScreen() {
     haptic.light()
   }
 
+  const handleEdit = () => {
+    setMenuOpen(false)
+    setOpenHabitSheet(true)
+    haptic.light()
+  }
+
   const MenuItems = [
     { id: 1, title: "Edit", icon: "pencil", color: "#ffffff", action: () => handleEdit()},
     { id: 2, title: "Archive", icon: "archive", color: "#ffffff", action: () => {}},
@@ -75,16 +92,10 @@ export default function HabitDetailScreen() {
 
   if (!habit) {
     return (
-      <View className="flex-1 items-center justify-center">
-        <Text>Habit not found</Text>
+      <View className="flex-1 items-center justify-center bg-background">
+        <Text className="text-foreground">loading...</Text>
       </View>
     );
-  }
-
-  const handleEdit = () => {
-    setMenuOpen(false)
-    setOpenHabitSheet(true)
-    haptic.light()
   }
 
   return (
@@ -118,7 +129,7 @@ export default function HabitDetailScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity ref={menuRef} onPress={() => setMenuOpen(true)} className="h-10 w-10 rounded-full items-center justify-center">
+          <TouchableOpacity ref={menuRef} onPress={() => { setOpenHabitSheet(false); setMenuOpen(true) }} className="h-10 w-10 rounded-full items-center justify-center">
             <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
@@ -129,12 +140,12 @@ export default function HabitDetailScreen() {
             anchorRef={menuRef}
             onClose={() => setMenuOpen(false)}
           >
-            <View className='flex gap-4 p-2 px-3'>
+            <View className='flex'>
               {MenuItems.map((item) => (
                 <TouchableOpacity
                   key={item.id}
                   onPress={item.action}
-                  className="flex-row items-center justify-start gap-3 min-w-28"
+                  className="flex-row items-center justify-start min-w-32 p-2 gap-2"
                 >
                   <Ionicons name={item.icon as any} size={20} color={item.color} />
                   <Text className="text-foreground font-medium p-0.5" style={{ color: item.color }}>{item.title}</Text>
@@ -206,7 +217,7 @@ export default function HabitDetailScreen() {
                 </View>
               )}
 
-              <Text className="text-foreground font-bold text-lg">
+              <Text className="text-foreground font-bold text-base tracking-wider">
                 {habit.duration ? "Start" : "Complete"}
               </Text>
             </TouchableOpacity>
@@ -351,7 +362,7 @@ export default function HabitDetailScreen() {
           onCancel={() => setConfirmDelete(false)}
         />
 
-        <AddHabitSheet habit={habit} open={openHabitSheet} onClose={() => setOpenHabitSheet(false)} />
+        <AddHabitSheet habit={habit} loadHabits={loadHabit} open={openHabitSheet} onClose={() => setOpenHabitSheet(false)} />
       </SafeAreaView>
     </View>
   );

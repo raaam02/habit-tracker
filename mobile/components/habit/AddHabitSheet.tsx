@@ -28,7 +28,7 @@ function AddHabitSheet({
   onClose,
 }: {
   habit?: HabitInput | null,
-  loadHabits?: () => void
+  loadHabits: () => void
   open: boolean;
   onClose: () => void;
 }) {
@@ -135,7 +135,7 @@ function AddHabitSheet({
       console.log("New Habit:", newHabit);
     }
 
-    loadHabits && loadHabits()
+    loadHabits()
 
     onClose();
   };

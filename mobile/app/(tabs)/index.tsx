@@ -12,11 +12,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { getHabits } from "@/db/habit.repository";
 import { haptic } from "@/utils/haptic";
 import HabitCard from "@/components/habit/HabitCard";
+import RunningHabitTimer from "@/components/habit/RunningHabitTimer";
 
 export default function HomeScreen() {
   const [openHabitSheet, setOpenHabitSheet] = useState(false);
   const [habits, setHabits] = useState<HabitInput[]>([]);
   const [editHabit, setEditHabit] = useState<HabitInput | null>(null);
+  const [runningHabit, setRunningHabit] = useState<HabitInput | null>(null)
 
   const loadHabits = () => {
     const data = getHabits()
@@ -37,24 +39,39 @@ export default function HomeScreen() {
           data={habits}
           keyExtractor={(item) => item.id.toString()}
           className="px-4 rounded-xl"
-          renderItem={({ item }) => <HabitCard habit={item} loadHabits={loadHabits} setEditHabit={setEditHabit} setOpenHabitSheet={setOpenHabitSheet} />}
+          renderItem={({ item }) => 
+            <HabitCard 
+              habit={item} 
+              loadHabits={loadHabits} 
+              startTimer={setRunningHabit} 
+              setEditHabit={setEditHabit} 
+              setOpenHabitSheet={setOpenHabitSheet} 
+            />
+          }
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <>
-              <View>
-                {/* STREAK SUMMARY */}
-                <StreakSummary streak={50} />
+            <View>
+              {runningHabit ? (
+                <RunningHabitTimer
+                  habit={runningHabit}
+                  onStop={() => setRunningHabit(null)}
+                />
+              ) : (
+                  <View>
+                    {/* STREAK SUMMARY */}
+                    <StreakSummary streak={50} />
 
-                {/* MONTHLY GROWTH */}
-                <View className="mt-6 mb-4 bg-card rounded-3xl p-4 pb-2">
-                  <View className="flex-row justify-between mb-2">
-                    <Text className="text-lg font-semibold text-card-foreground">Monthly Growth</Text>
-                    <Text className="text-primary font-medium">View details</Text>
+                    {/* MONTHLY GROWTH */}
+                    <View className="mt-6 mb-4 bg-card rounded-3xl p-4 pb-2">
+                      <View className="flex-row justify-between mb-2">
+                        <Text className="text-lg font-semibold text-card-foreground">Monthly Growth</Text>
+                        <Text className="text-primary font-medium">View details</Text>
+                      </View>
+                      <MonthlyGrowthChart />
+                    </View>
                   </View>
-                  <MonthlyGrowthChart />
-                </View>
-              </View>
-            </>
+              )}
+            </View>
           }
           ListFooterComponent={
             <>
