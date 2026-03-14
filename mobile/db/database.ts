@@ -25,8 +25,15 @@ export function initDatabase() {
       date TEXT NOT NULL,
       status TEXT NOT NULL,
       reason TEXT,
+      completedTime INTEGER,
       createdAt TEXT,
       FOREIGN KEY (habitId) REFERENCES habits(id)
     );
   `);
+
+  try {
+    db.execSync(`ALTER TABLE habit_logs ADD COLUMN completedTime INTEGER;`);
+  } catch (e) {
+    // Column already exists or another error, ignore
+  }
 }

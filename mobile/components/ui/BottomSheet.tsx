@@ -1,6 +1,6 @@
 import { View } from "react-native";
-import { BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
-import { useRef, useEffect, useMemo } from "react";
+import { BottomSheetModal, BottomSheetFooter, BottomSheetBackdrop } from "@gorhom/bottom-sheet";
+import { useRef, useEffect, useMemo, useCallback } from "react";
 import { useColorScheme } from "nativewind";
 
 function BottomSheet({
@@ -10,11 +10,25 @@ function BottomSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  children: React.ReactNode;
+  children: {
+    content: React.ReactNode;
+    footer?: React.ReactNode;
+  };
 }) {
   const ref = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["90%"], []);
   const { colorScheme } = useColorScheme();
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        appearsOnIndex={0}
+        disappearsOnIndex={-1}
+      />
+    ),
+    []
+  );
 
   useEffect(() => {
     if (open) {
@@ -30,6 +44,7 @@ function BottomSheet({
       snapPoints={snapPoints}
       keyboardBehavior="extend"
       onDismiss={onClose}
+      backdropComponent={renderBackdrop}
       handleIndicatorStyle={{
         backgroundColor: colorScheme === 'dark' ? "hsl(0 0% 50%)" : "hsl(0 0% 50%)",
       }}
@@ -39,8 +54,13 @@ function BottomSheet({
         borderColor: colorScheme === 'dark' ? "hsl(0 0% 10%)" : "hsl(0 0% 95%)",
         backgroundColor: colorScheme === 'dark' ? "hsl(0 0% 5%)" : "hsl(0 0% 100%)",
       }}
+      footerComponent={({ animatedFooterPosition }) => (
+        <BottomSheetFooter animatedFooterPosition={animatedFooterPosition} bottomInset={10}>
+          {children.footer}
+        </BottomSheetFooter>
+      )}
     >
-      <BottomSheetView className="bg-background h-full">{children}</BottomSheetView>
+      <View style={{ flex: 1 }}>{children.content}</View>
     </BottomSheetModal>
   );
 }

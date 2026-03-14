@@ -1,6 +1,6 @@
-import { View, Text, TextInput, Pressable, Switch } from "react-native";
+import { View, Text, TextInput, Pressable, Switch, Platform } from "react-native";
 import React, { useEffect, useState } from "react";
-import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
+import { BottomSheetTextInput, BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import IconPicker from "../IconPicker";
 import { COLORS, DAYS_OF_WEEK, FREQUENCY_OPTIONS } from "@/utils/constants";
 import { HabitInput } from "@/types/habit";
+import AnimatedPressable from "../ui/AnimatedPressable";
 
 function AddHabitSheet({
   habit,
@@ -142,8 +143,14 @@ function AddHabitSheet({
 
   return (
     <BottomSheet open={open} onClose={onClose}>
-      <View className="flex-1 gap-6 px-6 pb-6">
-        {/* Habit Icon */}
+      {{
+        content: (
+          <BottomSheetScrollView 
+            contentContainerStyle={{ paddingBottom: 100, gap: 24, paddingTop: 16 }} 
+            className="flex-1 px-6"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Habit Icon */}
         <View>
           <View className="flex-row justify-center mt-4">
             <Pressable
@@ -264,7 +271,7 @@ function AddHabitSheet({
         </View> */}
 
         {/* Duration */}
-        <View className="flex-row justify-between mt-2">
+        <View className="flex-row justify-between mt-2 mb-6">
           {/* <Text className="text-foreground mb-1">Goal Duration</Text> */}
           <View className="flex-row items-center gap-2">
             <TextInput
@@ -288,18 +295,25 @@ function AddHabitSheet({
           
           {/* Reminder Time */}
           <View className="flex-row gap-2 items-center">
-            <Text className="text-foreground mb-1">On</Text>
+            <Text className="text-foreground mb-1">Reminder at</Text>
             <TimePicker value={reminderTime} onChange={setReminderTime} />
           </View>
         </View>
 
-        {/* Submit */}
-      </View>
-      <Button
-        className="mb-4"
-        label="Create Habit"
-        onPress={submitHabit}
-      />
+          {/* Submit */}
+          </BottomSheetScrollView>
+        ),
+        footer: (
+          <View className="px-6 pb-8 bg-background">
+            <AnimatedPressable
+              onPress={submitHabit}
+              variant="primary"
+            >
+              <Text className="text-primary-foreground text-lg font-semibold">{isEdit ? "Save Changes" : "Create Habit"}</Text>
+            </AnimatedPressable>
+          </View>
+        )
+      }}
     </BottomSheet>
   );
 }

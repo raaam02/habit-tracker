@@ -15,13 +15,15 @@ interface HabitCardProps {
   loadHabits: () => void,
   setEditHabit: (habit: HabitInput) => void,
   setOpenHabitSheet: (open: boolean) => void,
-  startTimer: (habit: HabitInput) => void
+  startTimer: (habit: HabitInput | null) => void,
+  isHabitRunning: boolean,
+  isHabitPaused: boolean,
+  setIsHabitPaused: (paused: boolean) => void
 }
 
-function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTimer }: HabitCardProps) {
+function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTimer, isHabitRunning, isHabitPaused, setIsHabitPaused }: HabitCardProps) {
 
   const streak = calculateCurrentStreak(habit.id)
-  const [running, setRunning] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const menuRef = React.useRef<View>(null);
@@ -33,7 +35,13 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
   }
 
   const handleTimer = () => {
+    if (isHabitRunning) {
+      setIsHabitPaused(!isHabitPaused)
+      haptic.light()
+      return
+    }
     startTimer(habit)
+    setIsHabitPaused(true)
     haptic.light()
   }
 
@@ -104,10 +112,10 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
             className="h-10 w-10 rounded-full items-center justify-center bg-muted"
           >
             <Ionicons
-              name={running ? "pause" : "play"}
+              name={(isHabitRunning && !isHabitPaused) ? "pause" : "play"}
               size={20}
               color="white"
-            />
+            ></Ionicons>
           </Pressable>
 
         ) : (

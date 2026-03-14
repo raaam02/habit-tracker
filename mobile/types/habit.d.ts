@@ -36,5 +36,6 @@ export type HabitLog = {
   date: string;
   status: "done" | "missed";
   reason?: string;
+  completedTime?: number;
   createdAt: string;
 };

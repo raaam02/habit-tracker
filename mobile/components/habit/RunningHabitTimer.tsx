@@ -1,41 +1,66 @@
-import { View, Text, Pressable } from "react-native"
+import { View, Text } from "react-native"
 import { useEffect, useState } from "react"
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedProps,
   withTiming,
-  withSpring,
   Easing,
 } from "react-native-reanimated"
-import Svg, { Circle } from "react-native-svg"
 import { HabitInput } from "@/types/habit"
 import { Ionicons } from "@expo/vector-icons"
 import ProgressRingTimer from "../ui/ProgressRingTimer"
-
-const AnimatedCircle = Animated.createAnimatedComponent(Circle)
+import AnimatedPressable from "../ui/AnimatedPressable"
+import { getLogForHabitToday } from "@/db/habit-log.repository"
 
 interface Props {
   habit: HabitInput
-  onStop: () => void
+  initialTime?: number
+  onStop: (trackedSeconds?: number) => void
+  onProgressChange?: (seconds: number) => void
+  paused: boolean
+  setPaused: (paused: boolean) => void
 }
 
-const RING_SIZE = 192        // w-48 = 192px
-const STROKE_WIDTH = 8
-const RADIUS = (RING_SIZE - STROKE_WIDTH) / 2
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS
-
-export default function RunningHabitTimer({ habit, onStop }: Props) {
+export default function RunningHabitTimer({ habit, initialTime = 0, onStop, onProgressChange, paused, setPaused }: Props) {
   const totalSeconds = (habit.duration ?? 10) * 60
 
-  const [seconds, setSeconds] = useState(0)
-  const [finished, setFinished] = useState(false)
+  const [seconds, setSeconds] = useState(initialTime)
+  const [finished, setFinished] = useState(initialTime >= totalSeconds)
   const [reverse, setReverse] = useState(false)
-
+  
   const fadeIn = useSharedValue(0)
-  const stopScale = useSharedValue(1)
-  const progress = useSharedValue(0) // 0 → 1
+  const progress = useSharedValue(initialTime / totalSeconds)
   const timerAnim = useSharedValue(0)
+  const menuAnim = useSharedValue(0)
+
+  useEffect(() => {
+    menuAnim.value = withTiming(paused ? 1 : 0, { duration: 400, easing: Easing.out(Easing.cubic) })
+  }, [paused])
+
+  useEffect(() => {
+    // When the user switches to another habit, re-initialize the clock
+    setSeconds(initialTime);
+    setFinished(initialTime >= totalSeconds);
+    progress.value = initialTime / totalSeconds;
+  }, [habit.id, initialTime]);
+
+  const resetAnimStyle = useAnimatedStyle(() => ({
+    position: "absolute",
+    opacity: menuAnim.value,
+    transform: [
+      { translateX: -80 * menuAnim.value },
+      { scale: 0.6 + 0.4 * menuAnim.value },
+    ],
+  }))
+
+  const completeAnimStyle = useAnimatedStyle(() => ({
+    position: "absolute",
+    opacity: menuAnim.value,
+    transform: [
+      { translateX: 80 * menuAnim.value },
+      { scale: 0.6 + 0.4 * menuAnim.value },
+    ],
+  }))
 
   useEffect(() => {
     timerAnim.value = 0
@@ -48,14 +73,19 @@ export default function RunningHabitTimer({ habit, onStop }: Props) {
 
   useEffect(() => {
     fadeIn.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) })
+  }, [])
+
+  useEffect(() => {
+    if (paused || finished) return
 
     const timer = setInterval(() => {
       setSeconds((prev) => {
         const next = prev + 1
         progress.value = withTiming(next / totalSeconds, { duration: 950, easing: Easing.linear })
+        
+        if (onProgressChange) onProgressChange(next)
 
         if (next >= totalSeconds) {
-          clearInterval(timer)
           setFinished(true)
         }
         return next
@@ -63,7 +93,7 @@ export default function RunningHabitTimer({ habit, onStop }: Props) {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [])
+  }, [paused, finished, totalSeconds])
 
   const timerStyle = useAnimatedStyle(() => {
     return {
@@ -79,23 +109,7 @@ export default function RunningHabitTimer({ habit, onStop }: Props) {
     }
   })
 
-  const animatedCircleProps = useAnimatedProps(() => ({
-    strokeDashoffset: CIRCUMFERENCE * (1 - progress.value),
-  }))
-
   const wrapperStyle = useAnimatedStyle(() => ({ opacity: fadeIn.value }))
-
-  const stopButtonStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: stopScale.value }],
-    width: "100%",
-  }))
-
-  const handlePressIn = () => {
-    stopScale.value = withSpring(0.94, { damping: 15, stiffness: 300 })
-  }
-  const handlePressOut = () => {
-    stopScale.value = withSpring(1, { damping: 10, stiffness: 200 })
-  }
 
   const format = (s: number) => {
     const h = Math.floor(s / 3600)
@@ -103,13 +117,6 @@ export default function RunningHabitTimer({ habit, onStop }: Props) {
     const sec = s % 60
     if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`
     return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`
-  }
-
-  const formatDuration = () => {
-    const h = Math.floor(totalSeconds / 3600)
-    const m = Math.floor((totalSeconds % 3600) / 60)
-    if (h > 0) return `${h}h${m > 0 ? ` ${m}m` : ""}`
-    return `${m}m`
   }
 
   const progressPercent = Math.min(100, Math.round((seconds / totalSeconds) * 100))
@@ -157,21 +164,54 @@ export default function RunningHabitTimer({ habit, onStop }: Props) {
           </Text>
 
           {/* Stop / Finish button */}
-          <Animated.View style={stopButtonStyle}>
-            <Pressable
-              onPress={onStop}
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              className="mt-4 bg-primary py-4 rounded-2xl flex-row items-center justify-center gap-2"
-            >
-              <View className="w-5 h-5 rounded-sm bg-foreground items-center justify-center">
-                <View className="w-2.5 h-2.5 bg-primary rounded-sm" />
+          <View className="w-full mt-4">
+            {finished ? (
+              <AnimatedPressable
+                onPress={() => onStop(seconds)}
+                className="bg-primary py-4 rounded-2xl flex-row items-center justify-center gap-2"
+              >
+                <View className="w-5 h-5 rounded-sm bg-foreground items-center justify-center">
+                  <View className="w-2.5 h-2.5 bg-primary rounded-sm" />
+                </View>
+                <Text className="text-foreground font-bold text-base tracking-wide">
+                  Finish Session
+                </Text>
+              </AnimatedPressable>
+            ) : (
+              <View className="h-12 w-full items-center justify-center relative">
+                <Animated.View style={resetAnimStyle} pointerEvents={paused ? "auto" : "none"}>
+                  <AnimatedPressable
+                    onPress={() => {
+                      setSeconds(0)
+                      progress.value = withTiming(0, { duration: 300 })
+                      setFinished(false)
+                    }}
+                    className="bg-muted size-14 rounded-xl flex-row items-center justify-center"
+                  >
+                    <Ionicons name="refresh" size={24} color="white" />
+                  </AnimatedPressable>
+                </Animated.View>
+
+                <Animated.View style={{ zIndex: 10 }}>
+                  <AnimatedPressable
+                    onPress={() => setPaused(!paused)}
+                    className="bg-primary size-14 rounded-2xl flex-row items-center justify-center gap-2"
+                  >
+                    <Ionicons name={paused ? "play" : "pause"} size={24} color="white" />
+                  </AnimatedPressable>
+                </Animated.View>
+
+                <Animated.View style={completeAnimStyle} pointerEvents={paused ? "auto" : "none"}>
+                  <AnimatedPressable
+                    onPress={() => onStop(seconds)}
+                    className="bg-muted size-14 rounded-xl flex-row items-center justify-center"
+                  >
+                    <Ionicons name="checkmark" size={24} color="white" />
+                  </AnimatedPressable>
+                </Animated.View>
               </View>
-              <Text className="text-foreground font-bold text-base tracking-wide">
-                {finished ? "Finish Session" : "Stop Session"}
-              </Text>
-            </Pressable>
-          </Animated.View>
+            )}
+          </View>
 
         </View>
       </View>

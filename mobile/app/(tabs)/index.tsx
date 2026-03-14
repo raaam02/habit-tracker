@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, Pressable, FlatList } from "react-native";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import MonthlyGrowthChart from "@/components/charts/MonthlyGrowthChart";
 import AddHabitSheet from "@/components/habit/AddHabitSheet";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,12 +13,19 @@ import { getHabits } from "@/db/habit.repository";
 import { haptic } from "@/utils/haptic";
 import HabitCard from "@/components/habit/HabitCard";
 import RunningHabitTimer from "@/components/habit/RunningHabitTimer";
+import { markHabitDone, getLogForHabitToday } from "@/services/habit-log.service";
 
 export default function HomeScreen() {
   const [openHabitSheet, setOpenHabitSheet] = useState(false);
   const [habits, setHabits] = useState<HabitInput[]>([]);
   const [editHabit, setEditHabit] = useState<HabitInput | null>(null);
-  const [runningHabit, setRunningHabit] = useState<HabitInput | null>(null)
+  const [runningHabit, setRunningHabit] = useState<HabitInput | null>(null);
+  const [isHabitPaused, setIsHabitPaused] = useState(false);
+  const [initialTimerTime, setInitialTimerTime] = useState(0);
+
+  // A ref to keep track of the current seconds exactly as they are in the timer,
+  // so if we preempt the timer with another habit, we can save progress.
+  const currentSecondsRef = React.useRef<number>(0);
 
   const loadHabits = () => {
     const data = getHabits()
@@ -42,8 +49,27 @@ export default function HomeScreen() {
           renderItem={({ item }) => 
             <HabitCard 
               habit={item} 
-              loadHabits={loadHabits} 
-              startTimer={setRunningHabit} 
+              isHabitRunning={runningHabit?.id === item.id}
+              isHabitPaused={isHabitPaused}
+              setIsHabitPaused={setIsHabitPaused}
+              loadHabits={loadHabits}
+              startTimer={(habit) => {
+                // If a habit was already running and we are switching to another,
+                // securely auto-save the tracked progress before switching.
+                if (runningHabit && habit?.id !== runningHabit.id) {
+                  markHabitDone(runningHabit.id, currentSecondsRef.current);
+                }
+
+                if (habit) {
+                  const todayLog = getLogForHabitToday(habit.id);
+                  setInitialTimerTime(todayLog?.completedTime || 0);
+                  currentSecondsRef.current = todayLog?.completedTime || 0;
+                } else {
+                  setInitialTimerTime(0);
+                  currentSecondsRef.current = 0;
+                }
+                setRunningHabit(habit);
+              }} 
               setEditHabit={setEditHabit} 
               setOpenHabitSheet={setOpenHabitSheet} 
             />
@@ -54,7 +80,26 @@ export default function HomeScreen() {
               {runningHabit ? (
                 <RunningHabitTimer
                   habit={runningHabit}
-                  onStop={() => setRunningHabit(null)}
+                  initialTime={initialTimerTime}
+                  onStop={(completedTime) => {
+                    markHabitDone(runningHabit.id, completedTime);
+                    haptic.notificationSuccess();
+                    setRunningHabit(null);
+                    setIsHabitPaused(false);
+                    currentSecondsRef.current = 0;
+                    loadHabits();
+                  }}
+                  onProgressChange={(secs) => {
+                    currentSecondsRef.current = secs;
+                  }}
+                  paused={isHabitPaused}
+                  setPaused={(paused) => {
+                    // Auto-save when paused manually
+                    if (paused) {
+                      markHabitDone(runningHabit.id, currentSecondsRef.current);
+                    }
+                    setIsHabitPaused(paused);
+                  }}
                 />
               ) : (
                   <View>
