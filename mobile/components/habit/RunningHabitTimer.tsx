@@ -1,5 +1,5 @@
-import { View, Text } from "react-native"
-import { useEffect, useState } from "react"
+import { View, Text, AppState } from "react-native"
+import { useEffect, useState, useRef } from "react"
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,7 +10,7 @@ import { HabitInput } from "@/types/habit"
 import { Ionicons } from "@expo/vector-icons"
 import ProgressRingTimer from "../ui/ProgressRingTimer"
 import AnimatedPressable from "../ui/AnimatedPressable"
-import { getLogForHabitToday } from "@/db/habit-log.repository"
+import { TimeFlow } from "number-flow-react-native"
 
 interface Props {
   habit: HabitInput
@@ -43,6 +43,15 @@ export default function RunningHabitTimer({ habit, initialTime = 0, onStop, onPr
     setFinished(initialTime >= totalSeconds);
     progress.value = initialTime / totalSeconds;
   }, [habit.id, initialTime]);
+
+  const lastTickRef = useRef<number>(Date.now());
+
+  // Update the reference point whenever unpaused or when habit changes
+  useEffect(() => {
+    if (!paused && !finished) {
+      lastTickRef.current = Date.now();
+    }
+  }, [paused, finished, habit.id, initialTime]);
 
   const resetAnimStyle = useAnimatedStyle(() => ({
     position: "absolute",
@@ -78,21 +87,41 @@ export default function RunningHabitTimer({ habit, initialTime = 0, onStop, onPr
   useEffect(() => {
     if (paused || finished) return
 
-    const timer = setInterval(() => {
-      setSeconds((prev) => {
-        const next = prev + 1
-        progress.value = withTiming(next / totalSeconds, { duration: 950, easing: Easing.linear })
-        
-        if (onProgressChange) onProgressChange(next)
+    const updateTimer = () => {
+      const now = Date.now();
+      const deltaMs = now - lastTickRef.current;
+      const deltaSecs = Math.floor(deltaMs / 1000);
 
-        if (next >= totalSeconds) {
-          setFinished(true)
-        }
-        return next
-      })
-    }, 1000)
+      if (deltaSecs > 0) {
+        setSeconds((prev) => {
+          const next = prev + deltaSecs
+          // Cap progress to 1 to avoid over-filling ring
+          progress.value = withTiming(Math.min(1, next / totalSeconds), { duration: 950, easing: Easing.linear })
+          
+          if (onProgressChange) onProgressChange(next)
 
-    return () => clearInterval(timer)
+          if (next >= totalSeconds) {
+            setFinished(true)
+          }
+          return next
+        })
+        // Advance the tick ref by exactly the deltaSecs consumed
+        lastTickRef.current += deltaSecs * 1000;
+      }
+    };
+
+    const timer = setInterval(updateTimer, 1000)
+
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        updateTimer();
+      }
+    });
+
+    return () => {
+      clearInterval(timer)
+      subscription.remove()
+    }
   }, [paused, finished, totalSeconds])
 
   const timerStyle = useAnimatedStyle(() => {
@@ -149,13 +178,20 @@ export default function RunningHabitTimer({ habit, initialTime = 0, onStop, onPr
             onTouchEnd={() => setReverse(!reverse)}
           >
             <Ionicons name={habit.icon as any} size={22} color={habit.color} />
-
-            <Animated.Text
-              style={timerStyle}
-              className="text-4xl font-bold tracking-tight text-foreground tabular-nums"
-            >
-              {format(reverse ? totalSeconds - seconds : seconds)}
-            </Animated.Text>
+            <Animated.View style={timerStyle}>
+              <TimeFlow
+                {...(totalSeconds > 3600 && {hours: Math.floor((reverse ? totalSeconds - seconds : seconds) / 3600)})}
+                minutes={Math.floor((reverse ? totalSeconds - seconds : seconds) / 60)}
+                seconds={(reverse ? totalSeconds - seconds : seconds) % 60}
+                trend={reverse ? -1 : 1}
+                style={{
+                  fontSize: 36,
+                  fontWeight: "bold",
+                  textAlign: "center",
+                  color: "white",
+                }}
+              />
+            </Animated.View>
           </ProgressRingTimer>
 
           {/* Progress label */}
@@ -186,7 +222,8 @@ export default function RunningHabitTimer({ habit, initialTime = 0, onStop, onPr
                       progress.value = withTiming(0, { duration: 300 })
                       setFinished(false)
                     }}
-                    className="bg-muted size-14 rounded-xl flex-row items-center justify-center"
+                    variant="muted"
+                    className="size-14 p-0"
                   >
                     <Ionicons name="refresh" size={24} color="white" />
                   </AnimatedPressable>
@@ -195,7 +232,8 @@ export default function RunningHabitTimer({ habit, initialTime = 0, onStop, onPr
                 <Animated.View style={{ zIndex: 10 }}>
                   <AnimatedPressable
                     onPress={() => setPaused(!paused)}
-                    className="bg-primary size-14 rounded-2xl flex-row items-center justify-center gap-2"
+                    variant="primary"
+                    className="size-14 p-0"
                   >
                     <Ionicons name={paused ? "play" : "pause"} size={24} color="white" />
                   </AnimatedPressable>
@@ -204,7 +242,8 @@ export default function RunningHabitTimer({ habit, initialTime = 0, onStop, onPr
                 <Animated.View style={completeAnimStyle} pointerEvents={paused ? "auto" : "none"}>
                   <AnimatedPressable
                     onPress={() => onStop(seconds)}
-                    className="bg-muted size-14 rounded-xl flex-row items-center justify-center"
+                    variant="muted"
+                    className="size-14 p-0"
                   >
                     <Ionicons name="checkmark" size={24} color="white" />
                   </AnimatedPressable>

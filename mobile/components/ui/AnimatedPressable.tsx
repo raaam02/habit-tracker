@@ -41,13 +41,13 @@ export default function AnimatedPressable({
   }));
 
   const variants: Record<ButtonVariant, string> = {
-    primary: "bg-primary text-primary-foreground py-4 rounded-full px-6 justify-center items-center",
-    secondary: "bg-secondary text-secondary-foreground",
-    muted: "bg-muted text-muted-foreground",
-    outline: "border border-border text-card-foreground",
-    ghost: "bg-transparent text-primary",
-    danger: "bg-destructive text-destructive-foreground",
-    none: "",
+    primary: "p-4 bg-primary text-primary-foreground justify-center items-center rounded-xl",
+    secondary: "p-4 bg-secondary text-secondary-foreground justify-center items-center rounded-xl",
+    muted: "p-4 bg-muted text-muted-foreground justify-center items-center rounded-xl",
+    outline: "p-4 border border-border text-card-foreground justify-center items-center rounded-xl",
+    ghost: "p-4 bg-transparent text-primary justify-center items-center rounded-xl",
+    danger: "p-4 bg-destructive text-destructive-foreground justify-center items-center rounded-xl",
+    none: "justify-center items-center",
   };
 
   const handlePressIn = (e: any) => {

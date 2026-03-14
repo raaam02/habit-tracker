@@ -14,6 +14,7 @@ import { haptic } from "@/utils/haptic";
 import HabitCard from "@/components/habit/HabitCard";
 import RunningHabitTimer from "@/components/habit/RunningHabitTimer";
 import { markHabitDone, getLogForHabitToday } from "@/services/habit-log.service";
+import AnimatedPressable from "@/components/ui/AnimatedPressable";
 
 export default function HomeScreen() {
   const [openHabitSheet, setOpenHabitSheet] = useState(false);
@@ -133,16 +134,16 @@ export default function HomeScreen() {
       )}
 
         {/* FLOATING ADD BUTTON */}
-        <View className="absolute bottom-28 right-2">
-          <Pressable
+        <View className="absolute bottom-28 right-5">
+          <AnimatedPressable
             onPress={() => {
               setOpenHabitSheet(true)
               haptic.light()
             }}
-            className="bg-primary px-6 py-4 rounded-full shadow-card flex-row items-center justify-center"
+            variant="primary"
           >
             <Ionicons name="add" size={24} color="white" />
-          </Pressable>
+          </AnimatedPressable>
         </View>
 
         <AddHabitSheet habit={editHabit} loadHabits={loadHabits} open={openHabitSheet} onClose={() => {setOpenHabitSheet(false); setEditHabit(null)}} />

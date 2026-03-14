@@ -9,6 +9,8 @@ import { haptic } from '@/utils/haptic'
 import Popover from '../ui/Popover'
 import { deleteHabit } from '@/services/habit.service'
 import ConfirmModal from '../ui/ConfirmModal'
+import AnimatedPressable from '../ui/AnimatedPressable'
+import { useColorScheme } from 'nativewind'
 
 interface HabitCardProps {
   habit: HabitInput,
@@ -22,6 +24,9 @@ interface HabitCardProps {
 }
 
 function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTimer, isHabitRunning, isHabitPaused, setIsHabitPaused }: HabitCardProps) {
+
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === "dark";
 
   const streak = calculateCurrentStreak(habit.id)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -74,15 +79,15 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
           setMenuOpen(true)
         }}
         key={habit.id.toString()}
-        className="p-4 rounded-2xl flex-row items-center justify-between"
+        className="p-4 px-2 rounded-2xl flex-row items-center justify-between"
         activeOpacity={0.7}
         onPress={() => router.push(`/habit/${habit.id}`)}
       >
 
         <View className="flex-row items-center gap-4">
           <View
-            style={{ backgroundColor: habit.bgColor }}
-            className="h-10 w-10 rounded-full items-center justify-center"
+            style={{ backgroundColor: habit.bgColor + (isDark ? '20' : '80') }}
+            className="h-14 w-14 rounded-full items-center justify-center"
           >
             <Ionicons name={habit.icon as any} size={24} color={habit.color} />
           </View>
@@ -107,16 +112,17 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
         {/* RIGHT ACTION BUTTON */}
         {habit.duration ? (
 
-          <Pressable
+          <AnimatedPressable
             onPress={handleTimer}
-            className="h-10 w-10 rounded-full items-center justify-center bg-muted"
+            variant='ghost'
+            className='p-3'
           >
             <Ionicons
               name={(isHabitRunning && !isHabitPaused) ? "pause" : "play"}
-              size={20}
+              size={24}
               color="white"
             ></Ionicons>
-          </Pressable>
+          </AnimatedPressable>
 
         ) : (
 
