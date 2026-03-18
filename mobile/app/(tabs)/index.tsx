@@ -13,7 +13,7 @@ import { getHabits } from "@/db/habit.repository";
 import { haptic } from "@/utils/haptic";
 import HabitCard from "@/components/habit/HabitCard";
 import RunningHabitTimer from "@/components/habit/RunningHabitTimer";
-import { markHabitDone, getLogForHabitToday } from "@/services/habit-log.service";
+import { updateHabitProgress, getLogForHabitToday } from "@/services/habit-log.service";
 import AnimatedPressable from "@/components/ui/AnimatedPressable";
 
 export default function HomeScreen() {
@@ -58,7 +58,7 @@ export default function HomeScreen() {
                 // If a habit was already running and we are switching to another,
                 // securely auto-save the tracked progress before switching.
                 if (runningHabit && habit?.id !== runningHabit.id) {
-                  markHabitDone(runningHabit.id, currentSecondsRef.current);
+                  updateHabitProgress(runningHabit.id, currentSecondsRef.current);
                 }
 
                 if (habit) {
@@ -83,7 +83,7 @@ export default function HomeScreen() {
                   habit={runningHabit}
                   initialTime={initialTimerTime}
                   onStop={(completedTime) => {
-                    markHabitDone(runningHabit.id, completedTime);
+                    updateHabitProgress(runningHabit.id, completedTime || 0);
                     haptic.notificationSuccess();
                     setRunningHabit(null);
                     setIsHabitPaused(false);
@@ -97,7 +97,7 @@ export default function HomeScreen() {
                   setPaused={(paused) => {
                     // Auto-save when paused manually
                     if (paused) {
-                      markHabitDone(runningHabit.id, currentSecondsRef.current);
+                      updateHabitProgress(runningHabit.id, currentSecondsRef.current);
                     }
                     setIsHabitPaused(paused);
                   }}

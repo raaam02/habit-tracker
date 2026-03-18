@@ -11,7 +11,7 @@ function Card({
   return (
     <View
       className={cn(
-        "bg-bg-card rounded-2xl shadow-card p-4",
+        "bg-card rounded-2xl shadow-card p-5",
         className
       )}
     >

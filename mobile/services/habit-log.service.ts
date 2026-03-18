@@ -1,18 +1,27 @@
 import { insertHabitLog, getLogForHabitToday } from "@/db/habit-log.repository";
+import { getHabitById } from "@/db/habit.repository";
 import { HabitLog } from "@/types/habit";
 import { randomUUID } from "expo-crypto";
 
-export function markHabitDone(habitId: string, completedTime?: number) {
-  console.log("habitId: ", habitId);
-  console.log("completedTime: ", completedTime); 
-  console.log("date: ", new Date().toISOString().split("T")[0]); 
+export function updateHabitProgress(habitId: string, seconds: number) {
+  const habit = getHabitById(habitId);
+  if (!habit) return null;
+
+  const targetTime = (habit.duration || 0) * 60;
+  const today = new Date().toISOString().split("T")[0];
+  const existingLog = getLogForHabitToday(habitId);
+
+  const completedTime = seconds;
+  const status = completedTime >= targetTime ? "done" : "in_progress";
+
   const log: HabitLog = {
-    id: randomUUID(),
+    id: existingLog?.id || randomUUID(),
     habitId,
-    date: new Date().toISOString().split("T")[0],
-    status: "done",
+    date: today,
+    status,
     completedTime,
-    createdAt: new Date().toISOString(),
+    targetTime,
+    createdAt: existingLog?.createdAt || new Date().toISOString(),
   };
 
   insertHabitLog(log);
@@ -21,12 +30,16 @@ export function markHabitDone(habitId: string, completedTime?: number) {
 }
 
 export function markHabitMissed(habitId: string, reason: string) {
+  const habit = getHabitById(habitId);
+  const targetTime = habit ? (habit.duration || 0) * 60 : 0;
+  
   const log: HabitLog = {
     id: randomUUID(),
     habitId,
     date: new Date().toISOString().split("T")[0],
     status: "missed",
     reason,
+    targetTime,
     createdAt: new Date().toISOString(),
   };
 

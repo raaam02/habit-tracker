@@ -11,6 +11,8 @@ import { Ionicons } from "@expo/vector-icons"
 import ProgressRingTimer from "../ui/ProgressRingTimer"
 import AnimatedPressable from "../ui/AnimatedPressable"
 import { TimeFlow } from "number-flow-react-native"
+import { updateHabitProgress } from "@/services/habit-log.service"
+import { haptic } from "@/utils/haptic"
 
 interface Props {
   habit: HabitInput
@@ -100,8 +102,10 @@ export default function RunningHabitTimer({ habit, initialTime = 0, onStop, onPr
           
           if (onProgressChange) onProgressChange(next)
 
-          if (next >= totalSeconds) {
+          if (next >= totalSeconds && !finished) {
             setFinished(true)
+            updateHabitProgress(habit.id, next)
+            haptic.notificationSuccess()
           }
           return next
         })
@@ -140,14 +144,6 @@ export default function RunningHabitTimer({ habit, initialTime = 0, onStop, onPr
 
   const wrapperStyle = useAnimatedStyle(() => ({ opacity: fadeIn.value }))
 
-  const format = (s: number) => {
-    const h = Math.floor(s / 3600)
-    const m = Math.floor((s % 3600) / 60)
-    const sec = s % 60
-    if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`
-    return `${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`
-  }
-
   const progressPercent = Math.min(100, Math.round((seconds / totalSeconds) * 100))
 
   const progressLabel = finished
@@ -170,8 +166,8 @@ export default function RunningHabitTimer({ habit, initialTime = 0, onStop, onPr
 
           {/* SVG Progress Ring */}
           <ProgressRingTimer
-            size={192}
-            strokeWidth={8}
+            size={250}
+            strokeWidth={10}
             color={habit.color}
             progress={progress}
             finished={finished}
@@ -202,17 +198,34 @@ export default function RunningHabitTimer({ habit, initialTime = 0, onStop, onPr
           {/* Stop / Finish button */}
           <View className="w-full mt-4">
             {finished ? (
-              <AnimatedPressable
-                onPress={() => onStop(seconds)}
-                className="bg-primary py-4 rounded-2xl flex-row items-center justify-center gap-2"
-              >
-                <View className="w-5 h-5 rounded-sm bg-foreground items-center justify-center">
-                  <View className="w-2.5 h-2.5 bg-primary rounded-sm" />
-                </View>
-                <Text className="text-foreground font-bold text-base tracking-wide">
-                  Finish Session
-                </Text>
-              </AnimatedPressable>
+              <View className="flex-row w-full gap-4">
+                <AnimatedPressable
+                  onPress={() => {
+                    setSeconds(0)
+                    progress.value = withTiming(0, { duration: 300 })
+                    setFinished(false)
+                    setPaused(false)
+                  }}
+                  variant="muted"
+                  className="flex-1 py-4 rounded-2xl flex-row items-center justify-center gap-2"
+                >
+                  <Ionicons name="refresh" size={20} color="#fff" />
+                  <Text className="text-foreground font-bold text-base tracking-wide">
+                    Reset
+                  </Text>
+                </AnimatedPressable>
+
+                <AnimatedPressable
+                  onPress={() => onStop(seconds)}
+                  variant="primary"
+                  className="flex-1 py-4 rounded-2xl flex-row items-center justify-center gap-2"
+                >
+                  <Ionicons name="checkmark-done" size={20} color="#fff" />
+                  <Text className="text-foreground font-bold text-base tracking-wide">
+                    Finish 
+                  </Text>
+                </AnimatedPressable>
+              </View>
             ) : (
               <View className="h-12 w-full items-center justify-center relative">
                 <Animated.View style={resetAnimStyle} pointerEvents={paused ? "auto" : "none"}>

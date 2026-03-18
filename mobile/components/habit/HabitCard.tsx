@@ -4,7 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { HabitInput } from '@/types/habit'
 import { router } from 'expo-router'
 import { calculateCurrentStreak } from '@/services/streak.service'
-import { markHabitDone } from '@/services/habit-log.service'
+import { updateHabitProgress, getLogForHabitToday } from '@/services/habit-log.service'
 import { haptic } from '@/utils/haptic'
 import Popover from '../ui/Popover'
 import { deleteHabit } from '@/services/habit.service'
@@ -35,8 +35,10 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
   const [menuOpen, setMenuOpen] = React.useState(false);
 
   const handleDone = () => {
-    markHabitDone(habit.id)
-    haptic.notificationSuccess()
+    const targetSeconds = (habit?.duration || 0) * 60;
+    updateHabitProgress(habit.id, targetSeconds || 1);
+    haptic.notificationSuccess();
+    loadHabits(); // Reload to reflect changes
   }
 
   const handleTimer = () => {
@@ -79,35 +81,58 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
           setMenuOpen(true)
         }}
         key={habit.id.toString()}
-        className="p-4 px-2 rounded-2xl flex-row items-center justify-between"
+        className="p-4 px-2 rounded-2xl flex-row items-center justify-between gap-4"
         activeOpacity={0.7}
         onPress={() => router.push(`/habit/${habit.id}`)}
       >
 
-        <View className="flex-row items-center gap-4">
-          <View
-            style={{ backgroundColor: habit.bgColor + (isDark ? '20' : '80') }}
-            className="h-14 w-14 rounded-full items-center justify-center"
-          >
-            <Ionicons name={habit.icon as any} size={24} color={habit.color} />
-          </View>
+        {/* <View className="flex-row items-center gap-4"> */}
+        <View
+          style={{ backgroundColor: habit.bgColor + (isDark ? '20' : '80') }}
+          className="h-14 w-14 rounded-full items-center justify-center"
+        >
+          <Ionicons name={habit.icon as any} size={24} color={habit.color} />
+        </View>
 
-          <View>
-            <Text className="font-bold text-foreground">
-              {habit.name}
+        <View className='flex-1'>
+          <Text className="font-bold text-foreground">
+            {habit.name}
+          </Text>
+
+          <View className="flex flex-row gap-1 items-center mt-0.5">
+            <Text className="text-muted-foreground text-sm font-bold">
+              🔥 {streak}
             </Text>
 
-            <View className="flex flex-row gap-1 items-center">
-              <Text className="text-muted-foreground text-sm font-bold">
-                🔥 {streak}
-              </Text>
-
-              <Text className="text-muted-foreground text-sm">
-                day streak
-              </Text>
-            </View>
+            <Text className="text-muted-foreground text-sm">
+              day streak
+            </Text>
           </View>
+
+          {/* PROGRESS BAR */}
+          {/* {(() => {
+            const todayLog = getLogForHabitToday(habit.id);
+            if (todayLog) {
+              const target = todayLog.targetTime || (habit.duration || 0) * 60 || 1;
+              const completed = todayLog.completedTime || 0;
+              const progress = Math.min(1, completed / target);
+              const isDone = completed >= target || todayLog.status === 'done';
+
+              return (
+                <View className="mt-2">
+                  <View className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                    <View 
+                      className={`h-full rounded-full ${isDone ? 'bg-emerald-500' : 'bg-primary'}`}
+                      style={{ width: `${progress * 100}%` }}
+                    />
+                  </View>
+                </View>
+              );
+            }
+            return null;
+          })()} */}
         </View>
+        {/* </View> */}
 
         {/* RIGHT ACTION BUTTON */}
         {habit.duration ? (

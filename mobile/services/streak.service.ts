@@ -12,7 +12,14 @@ export function calculateCurrentStreak(habitId: string) {
 
     const log = logs.find((l) => l.date === targetDate);
 
-    if (!log || log.status !== "done") {
+    // Completion condition: status is done or completedTime >= targetTime
+    // Fallback: if targetTime is null, use status === "done" for old logs
+    const isCompleted = log && (
+      log.status === "done" || 
+      (log.completedTime != null && log.targetTime != null && log.completedTime >= log.targetTime)
+    );
+
+    if (!isCompleted) {
       break;
     }
 
@@ -34,7 +41,10 @@ export function calculateBestStreak(habitId: string) {
   );
 
   for (const log of sorted) {
-    if (log.status === "done") {
+    const isCompleted = log.status === "done" || 
+      (log.completedTime != null && log.targetTime != null && log.completedTime >= log.targetTime);
+
+    if (isCompleted) {
       current++;
       best = Math.max(best, current);
     } else {
@@ -50,7 +60,10 @@ export function completionRate(habitId: string) {
 
   if (logs.length === 0) return 0;
 
-  const done = logs.filter((l) => l.status === "done").length;
+  const done = logs.filter((log) => 
+    log.status === "done" || 
+    (log.completedTime != null && log.targetTime != null && log.completedTime >= log.targetTime)
+  ).length;
 
   return Math.round((done / logs.length) * 100);
 }

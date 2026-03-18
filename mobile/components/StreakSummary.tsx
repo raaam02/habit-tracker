@@ -14,7 +14,7 @@ const StreakSummary = ({streak}: StreakSummaryProps) => {
   const month = date.toLocaleString('en-us', { month: 'short' });
   const year = date.getFullYear();
   return (
-    <Card className='bg-card rounded-3xl p-4'>
+    <Card>
       <View className="flex-row items-center justify-between">
         <View className='gap-1'>
           <View>

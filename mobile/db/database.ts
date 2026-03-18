@@ -33,7 +33,9 @@ export function initDatabase() {
 
   try {
     db.execSync(`ALTER TABLE habit_logs ADD COLUMN completedTime INTEGER;`);
-  } catch (e) {
-    // Column already exists or another error, ignore
-  }
+  } catch (e) {}
+
+  try {
+    db.execSync(`ALTER TABLE habit_logs ADD COLUMN targetTime INTEGER;`);
+  } catch (e) {}
 }

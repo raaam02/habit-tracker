@@ -11,20 +11,21 @@ export function insertHabitLog(log: HabitLog) {
   if (existing) {
     db.runSync(
       `UPDATE habit_logs
-       SET status = ?, reason = ?, completedTime = ?
+       SET status = ?, reason = ?, completedTime = ?, targetTime = ?
        WHERE id = ?`,
       [
         log.status,
         log.reason ?? null,
         log.completedTime ?? null,
+        log.targetTime ?? null,
         existing.id,
       ]
     );
   } else {
     db.runSync(
       `INSERT INTO habit_logs
-      (id, habitId, date, status, reason, completedTime, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      (id, habitId, date, status, reason, completedTime, targetTime, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         log.id,
         log.habitId,
@@ -32,6 +33,7 @@ export function insertHabitLog(log: HabitLog) {
         log.status,
         log.reason ?? null,
         log.completedTime ?? null,
+        log.targetTime ?? null,
         log.createdAt,
       ]
     );
