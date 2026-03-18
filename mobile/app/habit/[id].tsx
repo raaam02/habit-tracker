@@ -10,7 +10,6 @@ import { updateHabitProgress } from "@/services/habit-log.service";
 import { haptic } from "@/utils/haptic";
 import { getHabitById } from "@/db/habit.repository";
 import { getLogsForHabit } from "@/db/habit-log.repository";
-import { DAYS_OF_WEEK } from "@/utils/constants";
 import Popover from "@/components/ui/Popover";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { deleteHabit } from "@/services/habit.service";
@@ -18,6 +17,8 @@ import AddHabitSheet from "@/components/habit/AddHabitSheet";
 import { HabitInput, HabitLog } from "@/types/habit";
 import AnimatedPressable from "@/components/ui/AnimatedPressable";
 import ProgressRingTimer from "@/components/ui/ProgressRingTimer";
+import StatsCard from "@/components/habit/StatsCard";
+import HabitCalendarSection from "@/components/habit/HabitCalendar";
 
 export default function HabitDetailScreen() {
   const router = useRouter();
@@ -100,13 +101,6 @@ export default function HabitDetailScreen() {
   useEffect(() => {
     streakProgress.value = withTiming(getWeekProgress(), { duration: 1000 });
   }, [logs, habit]);
-  
-  const datesOfCurrentWeek = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(date.setDate(diff + i)).toISOString().split("T")[0];
-  });
 
   const handleDelete = () => {
     setMenuOpen(false)
@@ -138,6 +132,12 @@ export default function HabitDetailScreen() {
     <>
     <Stack.Screen options={{ headerShown: false }} />
     <StatusBar backgroundColor="#1a1a1a" barStyle="light-content" />
+    <HabitCalendarSection
+            habit={habit}
+            logs={logs}
+            isHabitCompleted={isHabitCompleted}
+            accentColor={habit.color}
+          />
     <View className="flex-1 bg-card">
       <SafeAreaView className="flex-1">
         {/* HEADER */}
@@ -240,86 +240,10 @@ export default function HabitDetailScreen() {
 
           {/* STATS */}
           <View className="px-6 mb-10">
-            {/* <Text className="text-lg font-bold text-foreground mb-4">
-              Progress
-            </Text> */}
-
             <View className="flex-row justify-between gap-4">
-              <View className="flex-1 bg-background p-4 rounded-3xl items-center border border-border shadow-sm">
-                <Text className="text-2xl font-bold text-foreground">
-                  {bestStreak}
-                </Text>
-                <Text className="text-muted-foreground text-xs font-bold uppercase tracking-wider mt-1">
-                  Best
-                </Text>
-              </View>
-
-              <View className="flex-1 bg-background p-4 rounded-3xl items-center border border-border shadow-sm">
-                <Text className="text-2xl font-bold text-foreground">{totalCompletions}</Text>
-                <Text className="text-muted-foreground text-xs font-bold uppercase tracking-wider mt-1">
-                  Total
-                </Text>
-              </View>
-
-              <View className="flex-1 bg-background p-4 rounded-3xl items-center border border-b-4 border-primary shadow-sm">
-                <View className="flex-row items-baseline">
-                  <Text className="text-2xl font-bold text-foreground">{rate}</Text>
-                  <Text className="text-sm font-bold text-foreground">%</Text>
-                </View>
-
-                <Text className="text-muted-foreground text-xs font-bold uppercase tracking-wider mt-1">
-                  Rate
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* CALENDAR (STATIC FOR NOW) */}
-          <View className="mx-6 p-6 bg-background rounded-3xl shadow-sm border border-border mb-10">
-            {/* <Text className="text-muted-foreground font-bold text-xs uppercase tracking-wider mb-2">
-              Overview
-            </Text> */}
-
-            <Text className="text-xl font-bold text-foreground mb-6">
-              {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
-            </Text>
-
-            <View className="flex-row justify-between mb-4">
-              {DAYS_OF_WEEK.map((d, i) => (
-                <Text
-                  key={i}
-                  className="text-muted-foreground font-bold text-xs w-8 text-center"
-                >
-                  {d}
-                </Text>
-              ))}
-            </View>
-
-            <View className="flex-row justify-between mb-2">
-              {datesOfCurrentWeek.map((d, i) => {
-                const dayLog = logs.find(log => log.date === d);
-                const isDone = isHabitCompleted(dayLog);
-                
-                const target = dayLog?.targetTime || (habit.duration || 0) * 60 || 1;
-                const completed = dayLog?.completedTime || 0;
-                const progress = completed / target;
-
-                const bgColor =
-                  progress === 0
-                    ? 'bg-muted'
-                    : progress >= 1
-                    ? 'bg-emerald-500'
-                    : 'bg-emerald-300';
-
-                return (
-                  <View
-                    key={i}
-                    className={`w-8 h-8 rounded-full items-center justify-center ${bgColor}`}
-                  >
-                    <Text className={`text-xs font-medium ${isDone ? 'text-white' : 'text-muted-foreground'}`}>{new Date(d).getDate()}</Text>
-                  </View>
-                );
-              })}
+              <StatsCard label="Best" value={bestStreak} />
+              <StatsCard label="Total" value={totalCompletions} />
+              <StatsCard label="Rate" value={rate} suffix="%" variant="primary" />
             </View>
           </View>
 
