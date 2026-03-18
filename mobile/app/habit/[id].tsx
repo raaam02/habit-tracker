@@ -19,6 +19,7 @@ import AnimatedPressable from "@/components/ui/AnimatedPressable";
 import ProgressRingTimer from "@/components/ui/ProgressRingTimer";
 import StatsCard from "@/components/habit/StatsCard";
 import HabitCalendarSection from "@/components/habit/HabitCalendar";
+import SwipeCalendar from "@/components/swipe-calendat";
 
 export default function HabitDetailScreen() {
   const router = useRouter();
@@ -131,14 +132,17 @@ export default function HabitDetailScreen() {
   return (
     <>
     <Stack.Screen options={{ headerShown: false }} />
-    <StatusBar backgroundColor="#1a1a1a" barStyle="light-content" />
-    <HabitCalendarSection
-            habit={habit}
-            logs={logs}
-            isHabitCompleted={isHabitCompleted}
-            accentColor={habit.color}
-          />
+    <StatusBar backgroundColor="#000000" barStyle="light-content" />
     <View className="flex-1 bg-card">
+      <SwipeCalendar
+      accentColor={habit.color}
+      markedDates={logs.map(l => l.date)}
+      selectedDate={new Date().toISOString().split("T")[0]}
+      todayLabel="Today"
+      onDayPress={(iso) => {
+        console.log(iso);
+      }}
+    />
       <SafeAreaView className="flex-1">
         {/* HEADER */}
         <View className="px-2 flex-row justify-between items-center py-4">

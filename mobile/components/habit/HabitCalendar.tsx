@@ -2,6 +2,7 @@
  * SwipeCalendar.tsx
  * ─────────────────────────────────────────────────────────────────────────────
  * Reusable React Native / Expo calendar header.
+ * Animations powered by React Native Reanimated 3.
  *
  * Gestures
  *   Swipe ↓ / ↑   → expand to month / collapse to week
@@ -29,12 +30,22 @@ import {
   Text,
   TouchableOpacity,
   PanResponder,
-  Animated,
   Dimensions,
   StyleSheet,
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  cancelAnimation,
+  interpolate,
+  Extrapolation,
+  runOnJS,
+} from "react-native-reanimated";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -90,7 +101,6 @@ function mondayOfWeek(d: Date): Date {
   return r;
 }
 
-/** ISO string for the Monday of the week containing `iso` */
 function weekAnchor(iso: string): string {
   return toIso(mondayOfWeek(fromIso(iso)));
 }
@@ -122,6 +132,7 @@ function addWeeks(iso: string, n: number): string {
 }
 
 // ─── SlideWrap ────────────────────────────────────────────────────────────────
+// Uses Reanimated shared values for slide-in animation on page key change.
 
 interface SlideWrapProps {
   pageKey: string;
@@ -130,42 +141,36 @@ interface SlideWrapProps {
 }
 
 function SlideWrap({ pageKey, direction, children }: SlideWrapProps) {
-  const tx      = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(1)).current;
-  const prevKey = useRef(pageKey);
+  const translateX = useSharedValue(0);
+  const prevKey    = useRef(pageKey);
 
   useEffect(() => {
     if (prevKey.current === pageKey) return;
     prevKey.current = pageKey;
     if (direction === "none") return;
 
-    const from = direction === "left" ? SW * 0.55 : -SW * 0.55;
-    tx.setValue(from);
-    opacity.setValue(0);
+    // Cancel any in-flight animation, hard-set the start position,
+    // then spring to 0 — all driven on the JS thread but Reanimated
+    // will flush the hard-set before starting the animation.
+    const from = direction === "left" ? SW * 0.6 : -SW * 0.6;
+    cancelAnimation(translateX);
+    translateX.value = from;
+    translateX.value = withSpring(0, {
+      damping:   22,
+      stiffness: 260,
+      mass:      0.6,
+    });
+  }, [pageKey]); // direction intentionally excluded — always set before pageKey
 
-    Animated.parallel([
-      Animated.spring(tx, {
-        toValue: 0,
-        friction: 14,
-        tension: 80,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 130,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [pageKey]); // ← direction intentionally excluded; always set before pageKey
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
-  return (
-    <Animated.View style={{ transform: [{ translateX: tx }], opacity }}>
-      {children}
-    </Animated.View>
-  );
+  return <Animated.View style={animStyle}>{children}</Animated.View>;
 }
 
 // ─── DayCell ──────────────────────────────────────────────────────────────────
+// Bounce scale uses Reanimated shared value.
 
 interface DayCellProps {
   iso: string;
@@ -179,15 +184,15 @@ interface DayCellProps {
 const DayCell = memo(function DayCell({
   iso, isSelected, isToday, hasMarker, accent, onPress,
 }: DayCellProps) {
-  const scale = useRef(new Animated.Value(1)).current;
+  const scale = useSharedValue(1);
   const day   = fromIso(iso).getDate();
 
   const handlePress = () => {
-    Animated.sequence([
-      Animated.timing(scale, { toValue: 0.78, duration: 65, useNativeDriver: true }),
-      Animated.spring(scale,  { toValue: 1,   friction: 5,  useNativeDriver: true }),
-    ]).start();
-    onPress();
+    scale.value = withSequence(
+      withTiming(0.78, { duration: 55 }),
+      withSpring(1, { damping: 10, stiffness: 300, mass: 0.5 }),
+    );
+    runOnJS(onPress)();
   };
 
   let bg: string   = "transparent";
@@ -197,13 +202,17 @@ const DayCell = memo(function DayCell({
   if (isSelected)   { bg = "#fff"; fg = accent; fw = "800"; }
   else if (isToday) { bg = "rgba(255,255,255,0.22)"; fg = "#fff"; fw = "700"; }
 
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={handlePress}
       style={[styles.cellTouch, { width: CELL_W }]}
     >
-      <Animated.View style={[styles.cellCircle, { backgroundColor: bg, transform: [{ scale }] }]}>
+      <Animated.View style={[styles.cellCircle, { backgroundColor: bg }, animStyle]}>
         <Text style={[styles.cellText, { color: fg, fontWeight: fw }]}>{day}</Text>
         {hasMarker && (
           <View style={[styles.dot, { backgroundColor: isSelected ? accent : "rgba(255,255,255,0.6)" }]} />
@@ -237,7 +246,6 @@ export default function SwipeCalendar({
     month: nowFlat.getMonth(),
   });
 
-  // Slide direction — set BEFORE mutating page data so SlideWrap reads it correctly
   const slideDir = useRef<"left" | "right" | "none">("none");
 
   useEffect(() => {
@@ -247,23 +255,50 @@ export default function SwipeCalendar({
   }, [selectedDate]);
 
   // ── Expand / collapse ────────────────────────────────────────────────────
+  // expandProgress: 0 = collapsed (week), 1 = expanded (month)
 
   const [expanded, setExpanded] = useState(false);
-  const expandAnim = useRef(new Animated.Value(0)).current;
-  const arrowAnim  = useRef(new Animated.Value(0)).current;
+  const expandedRef = useRef(false); // stable ref for PanResponder closure
 
-  // FIX ① — Mirror `expanded` into a ref so the PanResponder closure
-  // (which is created once and never re-runs) always reads the current value.
-  const expandedRef = useRef(false);
+  const expandProgress = useSharedValue(0); // replaces Animated.Value
+  const arrowProgress  = useSharedValue(0); // replaces arrowAnim
 
   const toggleExpand = useCallback((open: boolean) => {
-    expandedRef.current = open; // sync ref immediately, before async setState re-render
+    expandedRef.current = open;
     setExpanded(open);
-    Animated.parallel([
-      Animated.spring(expandAnim, { toValue: open ? 1 : 0, friction: 12, tension: 55, useNativeDriver: false }),
-      Animated.timing(arrowAnim,  { toValue: open ? 1 : 0, duration: 220, useNativeDriver: true }),
-    ]).start();
+
+    expandProgress.value = withSpring(open ? 1 : 0, {
+      damping:   20,
+      stiffness: 200,
+      mass:      0.8,
+    });
+    arrowProgress.value  = withTiming(open ? 1 : 0, { duration: 180 });
   }, []);
+
+  // ── Animated styles ───────────────────────────────────────────────────────
+
+  // Calendar container height
+  const calHeightStyle = useAnimatedStyle(() => ({
+    height: interpolate(expandProgress.value, [0, 1], [WEEK_H, EXPANDED_TOTAL], Extrapolation.CLAMP),
+    overflow: "hidden",
+  }));
+
+  // Week strip opacity
+  const weekOpacityStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(expandProgress.value, [0, 0.25, 1], [1, 0, 0], Extrapolation.CLAMP),
+  }));
+
+  // Month grid opacity
+  const monthOpacityStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(expandProgress.value, [0, 0.5, 1], [0, 0, 1], Extrapolation.CLAMP),
+  }));
+
+  // Arrow rotation
+  const arrowStyle = useAnimatedStyle(() => ({
+    transform: [{
+      rotate: `${interpolate(arrowProgress.value, [0, 1], [0, 180], Extrapolation.CLAMP)}deg`,
+    }],
+  }));
 
   // ── Navigation ────────────────────────────────────────────────────────────
 
@@ -290,8 +325,7 @@ export default function SwipeCalendar({
     });
   }, []);
 
-  // FIX ② — Keep callback refs up-to-date so PanResponder always invokes
-  // the latest function identity without being recreated itself.
+  // Stable callback refs so PanResponder closure never goes stale
   const navigateWeekRef  = useRef(navigateWeek);
   const navigateMonthRef = useRef(navigateMonth);
   const toggleExpandRef  = useRef(toggleExpand);
@@ -319,8 +353,6 @@ export default function SwipeCalendar({
 
   const axisLock = useRef<"none" | "h" | "v">("none");
 
-  // FIX ③ — All reads of `expanded` use expandedRef.current; all calls go
-  // through the *Ref.current indirection so nothing here is ever stale.
   const pan = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 5 || Math.abs(g.dy) > 5,
@@ -344,13 +376,6 @@ export default function SwipeCalendar({
       },
     })
   ).current;
-
-  // ── Interpolations ────────────────────────────────────────────────────────
-
-  const calHeight    = expandAnim.interpolate({ inputRange:[0,1], outputRange:[WEEK_H, EXPANDED_TOTAL] });
-  const weekOpacity  = expandAnim.interpolate({ inputRange:[0,0.25,1], outputRange:[1,0,0] });
-  const monthOpacity = expandAnim.interpolate({ inputRange:[0,0.5,1],  outputRange:[0,0,1] });
-  const arrowRotate  = arrowAnim.interpolate({ inputRange:[0,1], outputRange:["0deg","180deg"] });
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -385,17 +410,21 @@ export default function SwipeCalendar({
 
         <TouchableOpacity style={styles.titleRow} onPress={() => toggleExpand(!expanded)} activeOpacity={0.8}>
           <Text style={styles.titleText}>{headerLabel}</Text>
-          <Animated.Text style={[styles.chevron, { transform: [{ rotate: arrowRotate }] }]}>▾</Animated.Text>
+          {/* Reanimated animated arrow */}
+          <Animated.Text style={[styles.chevron, arrowStyle]}>▾</Animated.Text>
         </TouchableOpacity>
 
         <View style={styles.pillSpacer} />
       </View>
 
-      {/* Calendar */}
-      <Animated.View style={{ height: calHeight, overflow: "hidden" }}>
+      {/* Calendar body — height driven by expandProgress */}
+      <Animated.View style={calHeightStyle}>
 
         {/* Week strip */}
-        <Animated.View style={[styles.calLayer, { opacity: weekOpacity }]} pointerEvents={expanded ? "none" : "auto"}>
+        <Animated.View
+          style={[styles.calLayer, weekOpacityStyle]}
+          pointerEvents={expanded ? "none" : "auto"}
+        >
           <DayLabelRow />
           <SlideWrap pageKey={weekSlideKey} direction={slideDir.current}>
             <View style={styles.cellRow}>
@@ -413,7 +442,10 @@ export default function SwipeCalendar({
         </Animated.View>
 
         {/* Full month */}
-        <Animated.View style={[styles.calLayer, { opacity: monthOpacity }]} pointerEvents={expanded ? "auto" : "none"}>
+        <Animated.View
+          style={[styles.calLayer, monthOpacityStyle]}
+          pointerEvents={expanded ? "auto" : "none"}
+        >
           <View style={styles.monthNav}>
             <TouchableOpacity onPress={() => navigateMonth(-1)} hitSlop={{ top:10,bottom:10,left:16,right:16 }} activeOpacity={0.7}>
               <Text style={styles.navArrow}>‹</Text>
