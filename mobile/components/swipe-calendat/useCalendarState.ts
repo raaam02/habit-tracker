@@ -24,8 +24,10 @@ export function useCalendarState(selectedDate?: string, onDayPress?: (iso: strin
 
   useEffect(() => {
     if (selectedDate === undefined) return;
+    const d = fromIso(selectedDate);
     setSelected(selectedDate);
     setWeekMonday(weekAnchor(selectedDate));
+    setMonthView({ year: d.getFullYear(), month: d.getMonth() });
   }, [selectedDate]);
 
   const toggleExpand = useCallback((open: boolean) => {
@@ -36,16 +38,21 @@ export function useCalendarState(selectedDate?: string, onDayPress?: (iso: strin
   }, []);
 
   const navigateWeek = useCallback((delta: number) => {
-    slideDir.current = delta > 0 ? "left" : "right";
-    setWeekMonday(prev => {
-      const next = addWeeks(prev, delta);
-      setSelected(sel => {
-        const selInNewWeek = weekDatesFrom(next);
-        return selInNewWeek.includes(sel) ? sel : next;
-      });
-      return next;
+  slideDir.current = delta > 0 ? "left" : "right";
+  setWeekMonday(prev => {
+    const next = addWeeks(prev, delta);
+    setSelected(sel => {
+      const newWeekDates = weekDatesFrom(next);
+      // If selected date is already in new week, keep it
+      if (newWeekDates.includes(sel)) return sel;
+      // Otherwise preserve the same weekday position (Mon=0 ... Sun=6)
+      const selDow = fromIso(sel).getDay();               // 0=Sun...6=Sat
+      const selMondayIndex = selDow === 0 ? 6 : selDow - 1; // convert to Mon=0...Sun=6
+      return newWeekDates[selMondayIndex];
     });
-  }, []);
+    return next;
+  });
+}, []);
 
   const navigateMonth = useCallback((delta: number) => {
     slideDir.current = delta > 0 ? "left" : "right";
@@ -60,8 +67,10 @@ export function useCalendarState(selectedDate?: string, onDayPress?: (iso: strin
 
   const selectDay = useCallback((iso: string) => {
     slideDir.current = "none";
+    const d = fromIso(iso);
     setSelected(iso);
     setWeekMonday(weekAnchor(iso));
+    setMonthView({ year: d.getFullYear(), month: d.getMonth() });
     onDayPress?.(iso);
   }, [onDayPress]);
 

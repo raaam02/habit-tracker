@@ -135,14 +135,15 @@ export default function HabitDetailScreen() {
     <StatusBar backgroundColor="#000000" barStyle="light-content" />
     <View className="flex-1 bg-card">
       <SwipeCalendar
-      accentColor={habit.color}
-      markedDates={logs.map(l => l.date)}
-      selectedDate={new Date().toISOString().split("T")[0]}
-      todayLabel="Today"
-      onDayPress={(iso) => {
-        console.log(iso);
-      }}
-    />
+        accentColor={habit.color}
+        markedDates={logs.map(l => l.date)}
+        selectedDate={new Date().toISOString().split("T")[0]}
+        todayLabel="Today"
+        onDayPress={(iso) => {
+          console.log(iso);
+        }}
+        weekLabelConfig={{ format: "long", uppercase: true }}
+      />
       <SafeAreaView className="flex-1">
         {/* HEADER */}
         <View className="px-2 flex-row justify-between items-center py-4">

@@ -8,8 +8,10 @@ export const MONTH_SHORT = [
   "Jan","Feb","Mar","Apr","May","Jun",
   "Jul","Aug","Sep","Oct","Nov","Dec",
 ];
-export const DAY_SHORT = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-export const DAY_FULL  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+export const DAY_NARROW = ["S", "M", "T", "W", "T", "F", "S"];
+export const DAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+export const DAY_LONG  = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
 const { width: SW } = Dimensions.get("window");
 export const SCREEN_W = SW;

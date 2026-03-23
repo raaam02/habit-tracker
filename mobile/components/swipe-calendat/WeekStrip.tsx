@@ -16,16 +16,18 @@ interface Props {
   expanded: boolean;
   opacityStyle: object;
   onSelect: (iso: string) => void;
+  weekLabels: string[];
 }
 
 export function WeekStrip({
   weekDates, selected, todayIso, markedSet, accentColor,
   weekMonday, slideDir, expanded, opacityStyle, onSelect,
+  weekLabels,
 }: Props) {
   return (
     <Animated.View style={[{ position: "absolute", top: 0, width: "100%" }, opacityStyle]}
       pointerEvents={expanded ? "none" : "auto"}>
-      <DayLabelRow />
+      <DayLabelRow labels={weekLabels} />
       <SlideWrap pageKey={weekMonday} direction={slideDir}>
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
           {weekDates.map((iso, i) => (

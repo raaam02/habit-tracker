@@ -1,12 +1,11 @@
-import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { DAY_SHORT, CELL_W } from "./constants";
+import { CELL_W } from "./constants";
 
-export function DayLabelRow() {
+export function DayLabelRow({ labels }: { labels: string[] }) {
   return (
     <View style={styles.row}>
-      {DAY_SHORT.map(l => (
-        <Text key={l} style={[styles.label, { width: CELL_W }]}>{l}</Text>
+      {labels.map((l, i) => (
+        <Text key={i} style={[styles.label, { width: CELL_W }]}>{l}</Text>
       ))}
     </View>
   );

@@ -20,11 +20,13 @@ interface Props {
   opacityStyle: object;
   onSelect: (iso: string) => void;
   onNavigate: (delta: number) => void;
+  weekLabels: string[];
 }
 
 export function MonthGrid({
   monthView, monthCells, selected, todayIso, markedSet, accentColor,
   monthSlideKey, slideDir, expanded, opacityStyle, onSelect, onNavigate,
+  weekLabels,
 }: Props) {
   return (
     <Animated.View style={[{ position: "absolute", top: 0, width: "100%" }, opacityStyle]}
@@ -40,7 +42,7 @@ export function MonthGrid({
         </TouchableOpacity>
       </View>
 
-      <DayLabelRow />
+      <DayLabelRow labels={weekLabels} />
 
       <SlideWrap pageKey={monthSlideKey} direction={slideDir}>
         <View style={styles.grid}>

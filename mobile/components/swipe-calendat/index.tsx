@@ -13,8 +13,8 @@ import { WeekStrip }        from "./WeekStrip";
 import { MonthGrid }        from "./MonthGrid";
 
 import { weekDatesFrom, buildMonthGrid, fromIso } from "./dateUtils";
-import { MONTH_SHORT, DAY_FULL, H_PAD, WEEK_H, EXPANDED_TOTAL } from "./constants";
-import type { SwipeCalendarProps } from "./types";
+import { MONTH_SHORT, DAY_LONG, H_PAD, WEEK_H, EXPANDED_TOTAL, DAY_NARROW, DAY_SHORT } from "./constants";
+import type { SwipeCalendarProps, WeekLabelConfig } from "./types";
 
 export default function SwipeCalendar({
   accentColor = "#000000",
@@ -22,6 +22,7 @@ export default function SwipeCalendar({
   selectedDate,
   todayLabel = "Today",
   onDayPress,
+  weekLabelConfig,
 }: SwipeCalendarProps) {
   const insets = useSafeAreaInsets();
 
@@ -33,6 +34,8 @@ export default function SwipeCalendar({
     selDate,
     toggleExpand, navigateWeek, navigateMonth, selectDay, goToToday,
   } = state;
+
+  const weekLabels = resolveWeekLabels(weekLabelConfig);
 
   // Stable refs for PanResponder
   const navigateWeekRef  = useRef(navigateWeek);
@@ -65,7 +68,16 @@ export default function SwipeCalendar({
   const monthCells   = buildMonthGrid(monthView.year, monthView.month);
   const weekSlideKey = weekMonday;
   const monthSlideKey= `${monthView.year}-${String(monthView.month).padStart(2, "0")}`;
-  const headerLabel  = `${DAY_FULL[selDate.getDay()]}, ${MONTH_SHORT[selDate.getMonth()]} ${selDate.getDate()}`;
+  const headerLabel  = `${DAY_LONG[selDate.getDay()]}, ${MONTH_SHORT[selDate.getMonth()]} ${selDate.getDate()}`;
+
+  // Inside SwipeCalendar, before the return:
+  function resolveWeekLabels(config: WeekLabelConfig = {}): string[] {
+    const { format = "short", uppercase = true } = config;
+    const base =
+      format === "narrow" ? DAY_NARROW :
+      format === "long"   ? DAY_LONG : DAY_SHORT;
+    return uppercase ? base.map(l => l.toUpperCase()) : base;
+  }
 
   return (
     <Animated.View
@@ -88,6 +100,7 @@ export default function SwipeCalendar({
           weekMonday={weekSlideKey} slideDir={slideDir.current}
           expanded={expanded} opacityStyle={weekOpacityStyle}
           onSelect={selectDay}
+          weekLabels={weekLabels}
         />
         <MonthGrid
           monthView={monthView} monthCells={monthCells}
@@ -97,6 +110,7 @@ export default function SwipeCalendar({
           expanded={expanded} opacityStyle={monthOpacityStyle}
           onSelect={(iso) => { selectDay(iso); toggleExpand(false); }}
           onNavigate={navigateMonth}
+          weekLabels={weekLabels}
         />
       </Animated.View>
 
