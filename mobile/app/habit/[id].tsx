@@ -19,7 +19,7 @@ import AnimatedPressable from "@/components/ui/AnimatedPressable";
 import ProgressRingTimer from "@/components/ui/ProgressRingTimer";
 import StatsCard from "@/components/habit/StatsCard";
 import HabitCalendarSection from "@/components/habit/HabitCalendar";
-import SwipeCalendar from "@/components/swipe-calendat";
+import SwipeCalendar from "@/components/swipe-calendar";
 
 export default function HabitDetailScreen() {
   const router = useRouter();
