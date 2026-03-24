@@ -2,8 +2,8 @@ import { Pressable, PressableProps, StyleProp, ViewStyle } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withTiming,
-  WithTimingConfig,
+  withSpring,
+  WithSpringConfig,
 } from "react-native-reanimated";
 import { cn } from "@/utils/cn";
 import { haptic } from "@/utils/haptic";
@@ -17,7 +17,7 @@ interface AnimatedPressableProps extends Omit<PressableProps, "style"> {
   className?: string;
   style?: StyleProp<ViewStyle>;
   scaleTo?: number;
-  animationConfig?: WithTimingConfig;
+  animationConfig?: WithSpringConfig;
   hapticType?: "light" | "notificationSuccess" | "notificationError" | "notificationWarning" | "none";
 }
 
@@ -29,8 +29,8 @@ export default function AnimatedPressable({
   style,
   children,
   variant = "none",
-  scaleTo = 0.92,
-  animationConfig = { duration: 100 },
+  scaleTo = 0.90,
+  animationConfig = { damping: 20, stiffness: 200, mass: 1 },
   hapticType = "none",
   ...props
 }: AnimatedPressableProps) {
@@ -51,7 +51,7 @@ export default function AnimatedPressable({
   };
 
   const handlePressIn = (e: any) => {
-    scale.value = withTiming(scaleTo, animationConfig);
+    scale.value = withSpring(scaleTo, animationConfig);
     if (onPressIn) onPressIn(e);
     if (hapticType === "light") haptic.light();
     if (hapticType === "notificationSuccess") haptic.notificationSuccess();
@@ -60,7 +60,7 @@ export default function AnimatedPressable({
   };
 
   const handlePressOut = (e: any) => {
-    scale.value = withTiming(1, { duration: 150 });
+    scale.value = withSpring(1, animationConfig);
     if (onPressOut) onPressOut(e);
   };
 

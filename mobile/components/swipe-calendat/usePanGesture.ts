@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useMemo } from "react";
 import { PanResponder } from "react-native";
 import { V_THRESHOLD, H_THRESHOLD } from "./constants";
 
@@ -14,8 +14,8 @@ export function usePanGesture({
 }: Options) {
   const axisLock = useRef<"none" | "h" | "v">("none");
 
-  return useRef(
-    PanResponder.create({
+  return useMemo(
+    () => PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 5 || Math.abs(g.dy) > 5,
       onPanResponderGrant: () => { axisLock.current = "none"; },
       onPanResponderMove: (_, g) => {
@@ -35,6 +35,7 @@ export function usePanGesture({
           if (g.dx >  H_THRESHOLD) expandedRef.current ? navigateMonthRef.current(-1) : navigateWeekRef.current(-1);
         }
       },
-    })
-  ).current;
+    }),
+    []
+  );
 }

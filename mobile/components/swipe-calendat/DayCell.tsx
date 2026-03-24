@@ -6,6 +6,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { fromIso } from "./dateUtils";
 import { CELL_W, CELL_H } from "./constants";
+import { useColorScheme } from "nativewind";
+import { Ionicons } from "@expo/vector-icons";
 
 interface Props {
   iso: string;
@@ -21,6 +23,8 @@ export const DayCell = memo(function DayCell({
 }: Props) {
   const scale = useSharedValue(1);
   const day   = fromIso(iso).getDate();
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === "dark";
 
   const handlePress = () => {
     scale.value = withSequence(
@@ -31,11 +35,11 @@ export const DayCell = memo(function DayCell({
   };
 
   let bg: string = "transparent";
-  let fg: string = "rgba(255,255,255,0.75)";
+  let fg: string = isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.75)";
   let fw: "500" | "700" | "800" = "500";
 
-  if (isSelected)   { bg = "#fff"; fg = accent; fw = "800"; }
-  else if (isToday) { bg = "rgba(255,255,255,0.22)"; fg = "#fff"; fw = "700"; }
+  if (isSelected)   { bg = isDark ? "#ffffff22" : "#00000011"; fg = accent; fw = "800"; }
+  else if (isToday) { bg = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"; fg = isDark ? "#fff" : "#000"; fw = "700"; }
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -45,9 +49,9 @@ export const DayCell = memo(function DayCell({
     <TouchableOpacity activeOpacity={0.8} onPress={handlePress}
       style={[styles.touch, { width: CELL_W }]}>
       <Animated.View style={[styles.circle, { backgroundColor: bg }, animStyle]}>
-        <Text style={[styles.text, { color: fg, fontWeight: fw }]}>{day}</Text>
+        <Text className="text-base" style={{ color: fg, fontWeight: fw }}>{day}</Text>
         {hasMarker && (
-          <View style={[styles.dot, { backgroundColor: isSelected ? accent : "rgba(255,255,255,0.6)" }]} />
+          <Ionicons className="absolute bottom-1" name="checkmark" size={10} color={isSelected ? accent : isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)"} />
         )}
       </Animated.View>
     </TouchableOpacity>
@@ -57,10 +61,8 @@ export const DayCell = memo(function DayCell({
 const styles = StyleSheet.create({
   touch:  { alignItems: "center", paddingVertical: 2 },
   circle: {
-    width: CELL_W - 4, height: CELL_H - 4,
+    width: CELL_W - 8, height: CELL_H - 8,
     borderRadius: (CELL_W - 4) / 2,
     alignItems: "center", justifyContent: "center",
   },
-  text: { fontSize: 14 },
-  dot:  { position: "absolute", bottom: 3, width: 4, height: 4, borderRadius: 2 },
 });

@@ -15,9 +15,11 @@ import { MonthGrid }        from "./MonthGrid";
 import { weekDatesFrom, buildMonthGrid, fromIso } from "./dateUtils";
 import { MONTH_SHORT, DAY_LONG, H_PAD, WEEK_H, EXPANDED_TOTAL, DAY_NARROW, DAY_SHORT } from "./constants";
 import type { SwipeCalendarProps, WeekLabelConfig } from "./types";
+import { useColorScheme } from "nativewind";
 
 export default function SwipeCalendar({
   accentColor = "#000000",
+  backgroundColor = "#000000",
   markedDates = [],
   selectedDate,
   todayLabel = "Today",
@@ -25,6 +27,8 @@ export default function SwipeCalendar({
   weekLabelConfig,
 }: SwipeCalendarProps) {
   const insets = useSafeAreaInsets();
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === "dark";
 
   const state = useCalendarState(selectedDate, onDayPress);
   const {
@@ -80,8 +84,8 @@ export default function SwipeCalendar({
   }
 
   return (
-    <Animated.View
-      style={[styles.header, { backgroundColor: "#000000", paddingTop: insets.top + 10, paddingHorizontal: H_PAD }]}
+    <View
+      style={[styles.header, { backgroundColor: backgroundColor, paddingTop: insets.top + 10, paddingHorizontal: H_PAD }]}
       {...pan.panHandlers}
     >
       <TopBar
@@ -97,7 +101,7 @@ export default function SwipeCalendar({
         <WeekStrip
           weekDates={weekDates} selected={selected} todayIso={todayIso}
           markedSet={markedSet} accentColor={accentColor}
-          weekMonday={weekSlideKey} slideDir={slideDir.current}
+          weekMonday={weekSlideKey} slideDir={slideDir}
           expanded={expanded} opacityStyle={weekOpacityStyle}
           onSelect={selectDay}
           weekLabels={weekLabels}
@@ -106,7 +110,7 @@ export default function SwipeCalendar({
           monthView={monthView} monthCells={monthCells}
           selected={selected} todayIso={todayIso}
           markedSet={markedSet} accentColor={accentColor}
-          monthSlideKey={monthSlideKey} slideDir={slideDir.current}
+          monthSlideKey={monthSlideKey} slideDir={slideDir}
           expanded={expanded} opacityStyle={monthOpacityStyle}
           onSelect={(iso) => { selectDay(iso); toggleExpand(false); }}
           onNavigate={navigateMonth}
@@ -120,21 +124,20 @@ export default function SwipeCalendar({
         activeOpacity={0.6}
         hitSlop={{ top: 8, bottom: 8, left: 40, right: 40 }}
       >
-        <View style={styles.handle} />
+        <View style={[styles.handle, { backgroundColor: isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.15)" }]} />
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
     ...Platform.select({
       ios:     { shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 18 },
-      android: { elevation: 10 },
+      android: { elevation: 1 },
     }),
     zIndex: 10,
   },
   handleWrap: { alignItems: "center", paddingVertical: 10 },
-  handle:     { width: 38, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.38)" },
+  handle:     { width: 38, height: 4, borderRadius: 2 },
 });

@@ -4,6 +4,7 @@ import Animated from "react-native-reanimated";
 import { DayCell } from "./DayCell";
 import { DayLabelRow } from "./DayLabelRow";
 import { SlideWrap } from "./SlideWrap";
+import { useColorScheme } from "nativewind";
 
 interface Props {
   weekDates: string[];
@@ -24,12 +25,14 @@ export function WeekStrip({
   weekMonday, slideDir, expanded, opacityStyle, onSelect,
   weekLabels,
 }: Props) {
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === "dark";
   return (
     <Animated.View style={[{ position: "absolute", top: 0, width: "100%" }, opacityStyle]}
       pointerEvents={expanded ? "none" : "auto"}>
-      <DayLabelRow labels={weekLabels} />
+      <DayLabelRow isDark={isDark} labels={weekLabels} />
       <SlideWrap pageKey={weekMonday} direction={slideDir}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+        <View className="flex flex-row justify-between">
           {weekDates.map((iso, i) => (
             <DayCell key={i} iso={iso}
               isSelected={iso === selected}

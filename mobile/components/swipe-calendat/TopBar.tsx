@@ -1,39 +1,38 @@
+import { useColorScheme } from "nativewind";
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import Animated from "react-native-reanimated";
+import AnimatedPressable from "../ui/AnimatedPressable";
+import { Ionicons } from "@expo/vector-icons";
+
+const AnimatedIonicons = Animated.createAnimatedComponent(Ionicons);
 
 interface Props {
   headerLabel: string;
   todayLabel: string;
   expanded: boolean;
-  arrowStyle: object;
+  arrowStyle: any;
   onTodayPress: () => void;
   onTitlePress: () => void;
 }
 
 export function TopBar({ headerLabel, todayLabel, expanded, arrowStyle, onTodayPress, onTitlePress }: Props) {
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === "dark";
   return (
     <View style={styles.bar}>
-      <TouchableOpacity style={styles.pill} onPress={onTodayPress} activeOpacity={0.75}>
-        <Text style={styles.pillText}>{todayLabel}</Text>
-      </TouchableOpacity>
+      <AnimatedPressable variant="muted" className="p-2 px-3 mt-1" onPress={onTodayPress}>
+        <Text className="text-sm font-semibold tracking-wide text-foreground">{todayLabel}</Text>
+      </AnimatedPressable>
 
-      <TouchableOpacity style={styles.titleRow} onPress={onTitlePress} activeOpacity={0.8}>
-        <Text style={styles.titleText}>{headerLabel}</Text>
-        <Animated.Text style={[styles.chevron, arrowStyle]}>▾</Animated.Text>
-      </TouchableOpacity>
-
-      <View style={styles.spacer} />
+      <AnimatedPressable className="flex flex-row items-center gap-2 p-2" onPress={onTitlePress} variant="ghost">
+        <Text className={`font-semibold text-base tracking-wide text-foreground`}>{headerLabel}</Text>
+        <AnimatedIonicons style={arrowStyle} name="chevron-down" size={14} color={isDark ? "#fff" : "#000"} />
+      </AnimatedPressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   bar:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
-  pill:     { borderWidth: 1.5, borderColor: "rgba(255,255,255,0.5)", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: "rgba(255,255,255,0.15)", minWidth: 68, alignItems: "center" },
-  pillText: { color: "#fff", fontWeight: "700", fontSize: 13, letterSpacing: 0.2 },
-  spacer:   { minWidth: 68, paddingHorizontal: 14 },
-  titleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  titleText:{ color: "#fff", fontSize: 15, fontWeight: "700", letterSpacing: 0.3 },
-  chevron:  { color: "rgba(255,255,255,0.85)", fontSize: 16, lineHeight: 20 },
 });

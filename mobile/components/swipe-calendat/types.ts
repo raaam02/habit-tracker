@@ -1,5 +1,6 @@
 export interface SwipeCalendarProps {
   accentColor?: string;
+  backgroundColor?: string;
   markedDates?: string[];
   selectedDate?: string;
   todayLabel?: string;

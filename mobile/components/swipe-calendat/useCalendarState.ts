@@ -17,7 +17,7 @@ export function useCalendarState(selectedDate?: string, onDayPress?: (iso: strin
   });
   const [expanded, setExpanded] = useState(false);
   const expandedRef = useRef(false);
-  const slideDir    = useRef<"left" | "right" | "none">("none");
+  const [slideDir, setSlideDir] = useState<"left" | "right" | "none">("none");
 
   const expandProgress = useSharedValue(0);
   const arrowProgress  = useSharedValue(0);
@@ -38,7 +38,7 @@ export function useCalendarState(selectedDate?: string, onDayPress?: (iso: strin
   }, []);
 
   const navigateWeek = useCallback((delta: number) => {
-  slideDir.current = delta > 0 ? "left" : "right";
+  setSlideDir(delta > 0 ? "left" : "right");
   setWeekMonday(prev => {
     const next = addWeeks(prev, delta);
     setSelected(sel => {
@@ -55,7 +55,7 @@ export function useCalendarState(selectedDate?: string, onDayPress?: (iso: strin
 }, []);
 
   const navigateMonth = useCallback((delta: number) => {
-    slideDir.current = delta > 0 ? "left" : "right";
+    setSlideDir(delta > 0 ? "left" : "right");
     setMonthView(prev => {
       let m = prev.month + delta;
       let y = prev.year;
@@ -66,7 +66,7 @@ export function useCalendarState(selectedDate?: string, onDayPress?: (iso: strin
   }, []);
 
   const selectDay = useCallback((iso: string) => {
-    slideDir.current = "none";
+    setSlideDir("none");
     const d = fromIso(iso);
     setSelected(iso);
     setWeekMonday(weekAnchor(iso));
@@ -75,7 +75,7 @@ export function useCalendarState(selectedDate?: string, onDayPress?: (iso: strin
   }, [onDayPress]);
 
   const goToToday = useCallback(() => {
-    slideDir.current = "none";
+    setSlideDir("none");
     setSelected(todayIso);
     setWeekMonday(weekAnchor(todayIso));
     setMonthView({ year: nowFlat.getFullYear(), month: nowFlat.getMonth() });

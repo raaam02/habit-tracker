@@ -6,6 +6,7 @@ import { DayLabelRow } from "./DayLabelRow";
 import { SlideWrap } from "./SlideWrap";
 import { MONTH_NAMES, CELL_W, CELL_H } from "./constants";
 import type { MonthView } from "./types";
+import { useColorScheme } from "nativewind";
 
 interface Props {
   monthView: MonthView;
@@ -28,6 +29,8 @@ export function MonthGrid({
   monthSlideKey, slideDir, expanded, opacityStyle, onSelect, onNavigate,
   weekLabels,
 }: Props) {
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === "dark";
   return (
     <Animated.View style={[{ position: "absolute", top: 0, width: "100%" }, opacityStyle]}
       pointerEvents={expanded ? "auto" : "none"}>
@@ -42,7 +45,7 @@ export function MonthGrid({
         </TouchableOpacity>
       </View>
 
-      <DayLabelRow labels={weekLabels} />
+      <DayLabelRow isDark={isDark} labels={weekLabels} />
 
       <SlideWrap pageKey={monthSlideKey} direction={slideDir}>
         <View style={styles.grid}>

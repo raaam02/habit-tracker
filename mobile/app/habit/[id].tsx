@@ -133,18 +133,19 @@ export default function HabitDetailScreen() {
     <>
     <Stack.Screen options={{ headerShown: false }} />
     <StatusBar backgroundColor="#000000" barStyle="light-content" />
-    <View className="flex-1 bg-card">
+    <View style={{ backgroundColor: "#080808" }} className="flex-1 bg-card">
       <SwipeCalendar
         accentColor={habit.color}
+        backgroundColor="#080808"
         markedDates={logs.map(l => l.date)}
         selectedDate={new Date().toISOString().split("T")[0]}
         todayLabel="Today"
         onDayPress={(iso) => {
           console.log(iso);
         }}
-        weekLabelConfig={{ format: "long", uppercase: true }}
+        weekLabelConfig={{ format: "narrow" }}
       />
-      <SafeAreaView className="flex-1">
+      <SafeAreaView className="flex-1 bg-card rounded-t-3xl">
         {/* HEADER */}
         <View className="px-2 flex-row justify-between items-center py-4">
           <TouchableOpacity
