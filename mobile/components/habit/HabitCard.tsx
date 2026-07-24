@@ -4,13 +4,16 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { HabitInput } from '@/types/habit'
 import { router } from 'expo-router'
 import { calculateCurrentStreak } from '@/services/streak.service'
-import { updateHabitProgress, getLogForHabitToday } from '@/services/habit-log.service'
+import { updateHabitProgress, getLogForHabitToday, markHabitMissed } from '@/services/habit-log.service'
 import { haptic } from '@/utils/haptic'
 import Popover from '../ui/Popover'
 import { deleteHabit } from '@/services/habit.service'
 import ConfirmModal from '../ui/ConfirmModal'
+import ReasonModal from '../ui/ReasonModal'
 import AnimatedPressable from '../ui/AnimatedPressable'
 import { useColorScheme } from 'nativewind'
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Animated, { useAnimatedStyle, SharedValue } from 'react-native-reanimated';
 
 interface HabitCardProps {
   habit: HabitInput,
@@ -30,6 +33,7 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
 
   const streak = calculateCurrentStreak(habit.id)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showReason, setShowReason] = useState(false)
 
   const menuRef = React.useRef<View>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -38,8 +42,15 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
     const targetSeconds = (habit?.duration || 0) * 60;
     updateHabitProgress(habit.id, targetSeconds || 1);
     haptic.notificationSuccess();
-    loadHabits(); // Reload to reflect changes
+    loadHabits?.(); // Reload to reflect changes
   }
+
+  const handleSkip = (reason: string) => {
+    markHabitMissed(habit.id, reason);
+    setShowReason(false);
+    haptic.notificationSuccess();
+    loadHabits?.();
+  };
 
   const handleTimer = () => {
     if (isHabitRunning) {
@@ -48,7 +59,7 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
       return
     }
     startTimer(habit)
-    setIsHabitPaused(true)
+    setIsHabitPaused?.(true)
     haptic.light()
   }
 
@@ -60,8 +71,8 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
 
   const handleEdit = () => {
     setMenuOpen(false)
-    setEditHabit(habit)
-    setOpenHabitSheet(true)
+    setEditHabit?.(habit)
+    setOpenHabitSheet?.(true)
     haptic.light()
   }
 
@@ -72,19 +83,71 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
     { name: "Delete", icon: "delete", color: "#e44444", action: () => { handleDelete() } }
   ]
 
+  const LeftAction = (prog: SharedValue<number>, drag: SharedValue<number>) => {
+    const style = useAnimatedStyle(() => ({
+      width: drag.value,
+    }));
+    const iconStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: prog.value }],
+      opacity: prog.value,
+    }));
+    return (
+      <Animated.View style={[style]} className="bg-emerald-500 my-1 justify-center rounded-3xl">
+        <Animated.View style={iconStyle} className="flex-row items-center justify-end pr-8 w-full">
+          <Ionicons name="checkmark" size={28} color="white" />
+        </Animated.View>
+      </Animated.View>
+    );
+  };
+
+  const RightAction = (prog: SharedValue<number>, drag: SharedValue<number>) => {
+    const style = useAnimatedStyle(() => ({
+      width: Math.abs(drag.value),
+    }));
+    const iconStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: prog.value }],
+      opacity: prog.value,
+    }));
+    return (
+      <View className="flex-row justify-end w-full">
+        <Animated.View style={[style]} className="bg-amber-500 my-1 justify-center rounded-3xl">
+          <Animated.View style={iconStyle} className="flex-row items-center justify-start pl-8 w-full">
+            <Text className='text-white font-bold text-lg'>Skip</Text>
+          </Animated.View>
+        </Animated.View>
+      </View>
+    );
+  };
+
   return (
     <>
-      <TouchableOpacity
-        ref={menuRef}
-        onLongPress={() => {
-          haptic.longPress()
-          setMenuOpen(true)
+      <ReanimatedSwipeable
+        friction={2}
+        enableTrackpadTwoFingerGesture
+        rightThreshold={40}
+        leftThreshold={40}
+        renderLeftActions={LeftAction}
+        renderRightActions={RightAction}
+        onSwipeableOpen={(direction) => {
+          if (direction === 'right') {
+            handleDone();
+          } else {
+            setShowReason(true);
+          }
+          haptic.light();
         }}
-        key={habit.id.toString()}
-        className="p-4 px-2 rounded-2xl flex-row items-center justify-between gap-4"
-        activeOpacity={0.7}
-        onPress={() => router.push(`/habit/${habit.id}`)}
       >
+        <TouchableOpacity
+          ref={menuRef}
+          onLongPress={() => {
+            haptic.longPress()
+            setMenuOpen(true)
+          }}
+          key={habit.id.toString()}
+          className="p-4 px-3 my-1 rounded-3xl flex-row items-center justify-between gap-4 bg-card"
+          activeOpacity={0.7}
+          onPress={() => router.push(`/habit/${habit.id}`)}
+        >
 
         {/* <View className="flex-row items-center gap-4"> */}
         <View
@@ -184,6 +247,7 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
         )}
 
       </TouchableOpacity>
+      </ReanimatedSwipeable>
 
       <ConfirmModal
         visible={confirmDelete}
@@ -193,9 +257,15 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
         variant="destructive"
         onConfirm={() => {
           deleteHabit(habit.id)
-          loadHabits()
+          loadHabits?.()
         }}
         onCancel={() => setConfirmDelete(false)}
+      />
+
+      <ReasonModal
+        visible={showReason}
+        onConfirm={handleSkip}
+        onCancel={() => setShowReason(false)}
       />
     </>
   )
