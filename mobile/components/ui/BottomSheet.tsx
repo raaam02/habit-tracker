@@ -6,6 +6,8 @@ import {
 } from "@gorhom/bottom-sheet";
 import { useRef, useEffect, useMemo, useCallback } from "react";
 import { useColorScheme } from "nativewind";
+import { View } from "react-native";
+import themes from "../../app/themes";
 
 function BottomSheet({
   open,
@@ -27,6 +29,8 @@ function BottomSheet({
   const isPresentedRef = useRef(false);
   const snapPoints = useMemo(() => ["90%"], []);
   const { colorScheme } = useColorScheme();
+  
+  const themeStyle = colorScheme === "dark" ? themes.main.dark : themes.main.light;
 
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -82,11 +86,15 @@ function BottomSheet({
           animatedFooterPosition={animatedFooterPosition}
           bottomInset={10}
         >
-          {children.footer}
+          <View style={themeStyle}>
+            {children.footer}
+          </View>
         </BottomSheetFooter>
       )}
     >
-      <BottomSheetView style={{ flex: 1 }}>{children.content}</BottomSheetView>
+      <BottomSheetView style={[{ flex: 1 }, themeStyle]}>
+        {children.content}
+      </BottomSheetView>
     </BottomSheetModal>
   );
 }

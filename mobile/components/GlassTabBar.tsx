@@ -14,7 +14,6 @@ import { useColorScheme } from "nativewind";
 
 const TABS = [
   { route: "/", icon: "home", label: "Home" },
-  { route: "/insights", icon: "stats-chart", label: "Insights" },
   { route: "/history", icon: "calendar", label: "History" },
   { route: "/settings", icon: "settings", label: "Settings" },
 ] as const;

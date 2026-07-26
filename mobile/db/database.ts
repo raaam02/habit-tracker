@@ -29,6 +29,14 @@ export function initDatabase() {
       createdAt TEXT,
       FOREIGN KEY (habitId) REFERENCES habits(id)
     );
+
+    CREATE TABLE IF NOT EXISTS user_profile (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      email TEXT,
+      avatar TEXT,
+      onboardingCompleted INTEGER
+    );
   `);
 
   try {

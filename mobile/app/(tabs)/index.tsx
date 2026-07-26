@@ -1,28 +1,35 @@
 import { View, Text, ScrollView, Pressable, FlatList } from "react-native";
-import React, { useEffect, useState } from "react";
-import MonthlyGrowthChart from "@/components/charts/MonthlyGrowthChart";
+import React, { useEffect, useState, useCallback } from "react";
 import AddHabitSheet from "@/components/habit/AddHabitSheet";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Habit, HabitInput } from "@/types/habit";
+import { Habit, HabitInput, HabitLog } from "@/types/habit";
 import Habits from "@/components/habit/Habits";
 import StreakSummary from "@/components/StreakSummary";
 import WelcomeHeader from "@/components/WelcomeHeader";
 import { MOCK_HABITS, MOCK_USER } from "@/utils/mock.data";
 import { Ionicons } from "@expo/vector-icons";
 import { getHabits } from "@/db/habit.repository";
+import { getAllHabitLogs } from "@/db/habit-log.repository";
+import { getUserProfile } from "@/db/user.repository";
 import { haptic } from "@/utils/haptic";
 import HabitCard from "@/components/habit/HabitCard";
 import RunningHabitTimer from "@/components/habit/RunningHabitTimer";
 import { updateHabitProgress, getLogForHabitToday } from "@/services/habit-log.service";
 import AnimatedPressable from "@/components/ui/AnimatedPressable";
+import HabitHeatmap from "@/components/habit/HabitHeatmap";
+import { router, useIsFocused } from "expo-router";
 
 export default function HomeScreen() {
   const [openHabitSheet, setOpenHabitSheet] = useState(false);
   const [habits, setHabits] = useState<HabitInput[]>([]);
+  const [logs, setLogs] = useState<HabitLog[]>([]);
   const [editHabit, setEditHabit] = useState<HabitInput | null>(null);
   const [runningHabit, setRunningHabit] = useState<HabitInput | null>(null);
   const [isHabitPaused, setIsHabitPaused] = useState(false);
   const [initialTimerTime, setInitialTimerTime] = useState(0);
+  const [user, setUser] = useState<any>(MOCK_USER);
+
+  const isFocused = useIsFocused();
 
   // A ref to keep track of the current seconds exactly as they are in the timer,
   // so if we preempt the timer with another habit, we can save progress.
@@ -31,25 +38,42 @@ export default function HomeScreen() {
   const loadHabits = () => {
     const data = getHabits()
     setHabits(data)
+    try {
+      const allLogs = getAllHabitLogs();
+      setLogs(allLogs);
+    } catch (e) {
+      console.warn(e);
+    }
+    const profile = getUserProfile();
+    if (profile) {
+      setUser(profile);
+    }
   }
 
   useEffect(() => {
-    loadHabits()
-  }, [])
-  
+    if (isFocused) {
+      const profile = getUserProfile();
+      if (!profile || !profile.onboardingCompleted) {
+        router.replace("/onboarding");
+      } else {
+        loadHabits();
+      }
+    }
+  }, [isFocused]);
+
 
   return (
     <>
     <SafeAreaView className="flex-1 bg-background text-foreground">
-      <WelcomeHeader user={MOCK_USER} />
+      <WelcomeHeader user={user} />
       {habits.length > 0 ? (
         <FlatList
           data={habits}
           keyExtractor={(item) => item.id.toString()}
           className="px-4 rounded-xl"
-          renderItem={({ item }) => 
-            <HabitCard 
-              habit={item} 
+          renderItem={({ item }) =>
+            <HabitCard
+              habit={item}
               isHabitRunning={runningHabit?.id === item.id}
               isHabitPaused={isHabitPaused}
               setIsHabitPaused={setIsHabitPaused}
@@ -70,9 +94,9 @@ export default function HomeScreen() {
                   currentSecondsRef.current = 0;
                 }
                 setRunningHabit(habit);
-              }} 
-              setEditHabit={setEditHabit} 
-              setOpenHabitSheet={setOpenHabitSheet} 
+              }}
+              setEditHabit={setEditHabit}
+              setOpenHabitSheet={setOpenHabitSheet}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -107,14 +131,8 @@ export default function HomeScreen() {
                     {/* STREAK SUMMARY */}
                     <StreakSummary streak={50} />
 
-                    {/* MONTHLY GROWTH */}
-                    <View className="mt-6 mb-4 bg-card rounded-3xl p-4 pb-2">
-                      <View className="flex-row justify-between mb-2">
-                        <Text className="text-lg font-semibold text-card-foreground">Monthly Growth</Text>
-                        <Text className="text-primary font-medium">View details</Text>
-                      </View>
-                      <MonthlyGrowthChart />
-                    </View>
+                    {/* HEATMAP */}
+                    <HabitHeatmap logs={logs} />
                   </View>
               )}
             </View>
@@ -128,8 +146,14 @@ export default function HomeScreen() {
           }
         />
       ) : (
-        <View className="h-48 p-5">
-          <Text className="text-center text-muted-foreground/60">No habits found</Text>
+        <View className="flex-1 justify-center items-center px-8 py-16 mt-8">
+          <View className="bg-primary/10 p-6 rounded-full mb-4">
+            <Ionicons name="sparkles-outline" size={40} color="#6366f1" />
+          </View>
+          <Text className="text-lg font-bold text-foreground text-center mb-1">No habits tracked yet</Text>
+          <Text className="text-muted-foreground text-center text-sm leading-5 max-w-[280px]">
+            Tap the "+" button below to build your routine and start tracking your daily streaks.
+          </Text>
         </View>
       )}
 

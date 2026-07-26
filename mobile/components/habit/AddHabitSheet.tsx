@@ -41,6 +41,7 @@ function AddHabitSheet({
   const [reminderTime, setReminderTime] = useState<Date>(new Date());
 
   const [duration, setDuration] = useState("10");
+  const [habitType, setHabitType] = useState(0); // 0 = Check-in, 1 = Timer
 
   const [frequency, setFrequency] = useState(0);
   const [days, setDays] = useState<number[]>([]);
@@ -65,6 +66,7 @@ function AddHabitSheet({
       setIsEdit(false);
       setHabitName("");
       setDuration("10");
+      setHabitType(0);
       setFrequency(0);
       setDays([]);
       setReminderEnabled(true);
@@ -78,6 +80,7 @@ function AddHabitSheet({
       setIsEdit(true);
       setHabitName(habit.name);
       setDuration(habit.duration?.toString() || "10");
+      setHabitType(habit.duration && habit.duration > 0 ? 1 : 0);
       setFrequency(habit.frequency);
       setDays(habit.days);
       setReminderEnabled(habit.reminderEnabled);
@@ -112,7 +115,7 @@ function AddHabitSheet({
         bgColor: color.bgColor,
         startDate: startDate.toISOString(),
         reminderTime: reminderTime.toISOString(),
-        duration: Number(duration),
+        duration: habitType === 1 ? Number(duration) : 0,
         frequency,
         days,
         reminderEnabled,
@@ -128,7 +131,7 @@ function AddHabitSheet({
         bgColor: color.bgColor,
         startDate: startDate.toISOString(),
         reminderTime: reminderTime.toISOString(),
-        duration: Number(duration),
+        duration: habitType === 1 ? Number(duration) : 0,
         frequency,
         days,
         reminderEnabled,
@@ -203,9 +206,18 @@ function AddHabitSheet({
           )}
         </View>
 
+        {/* Habit Type Selection */}
+        <View>
+          <Text className="text-foreground mb-2 font-semibold">Habit Type</Text>
+          <SegmentedControl
+            options={["Task-based", "Time-based"]}
+            valueIndex={habitType}
+            onChange={setHabitType}
+          />
+        </View>
+
         {/* Frequency */}
         <View>
-          {/* <Text className="text-foreground mb-1">Repeat</Text> */}
           <SegmentedControl
             options={FREQUENCY_OPTIONS}
             valueIndex={frequency}
@@ -271,32 +283,35 @@ function AddHabitSheet({
           />
         </View> */}
 
-        {/* Duration */}
-        <View className="flex-row justify-between mt-2 mb-6">
-          {/* <Text className="text-foreground mb-1">Goal Duration</Text> */}
-          <View className="flex-row items-center gap-2">
-            <TextInput
-              keyboardType="numeric"
-              placeholder="10"
-              className="px-6 py-2 text-lg w-20 border border-border rounded-full text-foreground placeholder:text-muted-foreground"
-              value={duration}
-              maxLength={1080}
-              onChangeText={(text) => {
-                const value = parseInt(text || "0")
+        {/* Duration / Reminder Row */}
+        <View className="flex-row justify-between items-center mt-2 mb-6">
+          {habitType === 1 ? (
+            <View className="flex-row items-center gap-2">
+              <TextInput
+                keyboardType="numeric"
+                placeholder="10"
+                className="px-6 py-2 text-lg w-20 border border-border rounded-full text-foreground placeholder:text-muted-foreground"
+                value={duration}
+                maxLength={1080}
+                onChangeText={(text) => {
+                  const value = parseInt(text || "0")
 
-                if (value > 1080) {
-                  setDuration("1080")
-                } else {
-                  setDuration(text.replace(/[^0-9]/g, ""))
-                }
-              }}
-            />
-            <Text className="text-foreground text-lg">minutes</Text>
-          </View>
+                  if (value > 1080) {
+                    setDuration("1080")
+                  } else {
+                    setDuration(text.replace(/[^0-9]/g, ""))
+                  }
+                }}
+              />
+              <Text className="text-foreground text-lg">minutes</Text>
+            </View>
+          ) : (
+            <View className="flex-1" />
+          )}
 
           {/* Reminder Time */}
           <View className="flex-row gap-2 items-center">
-            <Text className="text-foreground mb-1">Reminder at</Text>
+            <Text className="text-foreground mb-1 font-medium">Reminder at</Text>
             <TimePicker value={reminderTime} onChange={setReminderTime} />
           </View>
         </View>

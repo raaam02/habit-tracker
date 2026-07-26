@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, StatusBar, Modal } from "react-native";
+import { View, Text, ScrollView, Pressable, StatusBar, Modal } from "react-native";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -148,12 +148,13 @@ export default function HabitDetailScreen() {
       <SafeAreaView className="flex-1 bg-card rounded-t-3xl">
         {/* HEADER */}
         <View className="px-2 flex-row justify-between items-center py-4">
-          <TouchableOpacity
+          <Pressable
             onPress={() => router.back()}
+            style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
             className="h-10 w-10 rounded-full items-center justify-center"
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
+          </Pressable>
 
           <View className="flex flex-1 flex-row gap-4 items-center px-2">
             <View
@@ -171,9 +172,14 @@ export default function HabitDetailScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity ref={menuRef} onPress={() => { setOpenHabitSheet(false); setMenuOpen(true) }} className="h-10 w-10 rounded-full items-center justify-center">
+          <Pressable 
+            ref={menuRef as any} 
+            style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+            onPress={() => { setOpenHabitSheet(false); setMenuOpen(true) }} 
+            className="h-10 w-10 rounded-full items-center justify-center"
+          >
             <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {menuOpen && (
@@ -184,14 +190,15 @@ export default function HabitDetailScreen() {
           >
             <View className='flex'>
               {MenuItems.map((item) => (
-                <TouchableOpacity
+                <Pressable
                   key={item.id}
                   onPress={item.action}
+                  style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
                   className="flex-row items-center justify-start min-w-32 p-2 gap-2"
                 >
                   <Ionicons name={item.icon as any} size={20} color={item.color} />
                   <Text className="text-foreground font-medium p-0.5" style={{ color: item.color }}>{item.title}</Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
           </Popover>

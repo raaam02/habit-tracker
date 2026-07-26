@@ -10,7 +10,12 @@ export default function TabLayout() {
           headerShown: false,
           tabBarStyle: { display: "none" },
         }}
-      />
+      >
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="history" />
+        <Tabs.Screen name="settings" />
+        <Tabs.Screen name="insights" options={{ href: null }} />
+      </Tabs>
       <GlassTabBar />
     </View>
   );

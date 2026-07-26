@@ -119,9 +119,12 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
     );
   };
 
+  const swipeableRef = React.useRef<any>(null);
+
   return (
     <>
       <ReanimatedSwipeable
+        ref={swipeableRef}
         friction={2}
         enableTrackpadTwoFingerGesture
         rightThreshold={40}
@@ -129,23 +132,25 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
         renderLeftActions={LeftAction}
         renderRightActions={RightAction}
         onSwipeableOpen={(direction) => {
-          if (direction === 'right') {
+          if (direction === 'left') {
             handleDone();
           } else {
             setShowReason(true);
           }
+          // Close the swipeable row immediately so it doesn't stay open
+          swipeableRef.current?.close();
           haptic.light();
         }}
       >
-        <TouchableOpacity
-          ref={menuRef}
+        <Pressable
+          ref={menuRef as any}
           onLongPress={() => {
             haptic.longPress()
             setMenuOpen(true)
           }}
           key={habit.id.toString()}
           className="p-4 px-3 my-1 rounded-3xl flex-row items-center justify-between gap-4 bg-card"
-          activeOpacity={0.7}
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
           onPress={() => router.push(`/habit/${habit.id}`)}
         >
 
@@ -199,28 +204,25 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
 
         {/* RIGHT ACTION BUTTON */}
         {habit.duration ? (
-
           <AnimatedPressable
             onPress={handleTimer}
-            variant='ghost'
-            className='p-3'
+            className="h-10 w-10 rounded-full items-center justify-center bg-primary"
+            hapticType="light"
           >
             <Ionicons
               name={(isHabitRunning && !isHabitPaused) ? "pause" : "play"}
-              size={24}
+              size={20}
               color="white"
-            ></Ionicons>
+            />
           </AnimatedPressable>
-
         ) : (
-
           <Pressable
             onPress={handleDone}
-            className="h-10 w-10 rounded-full items-center justify-center bg-primary/80"
+            style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+            className="h-10 w-10 rounded-full items-center justify-center bg-primary"
           >
-            <Ionicons name="checkmark" size={24} color="white" />
+            <Ionicons name="checkmark" size={20} color="white" />
           </Pressable>
-
         )}
 
         {menuOpen && (
@@ -234,19 +236,20 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
           >
             <View className='flex-row'>
               {HabitLongPressMenus.map((menu, index) => (
-                <TouchableOpacity
+                <Pressable
                   key={index}
                   onPress={menu.action}
+                  style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
                   className="p-2"
                 >
                   <MaterialCommunityIcons name={menu.icon as any} size={24} color={menu.color} />
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
           </Popover>
         )}
 
-      </TouchableOpacity>
+      </Pressable>
       </ReanimatedSwipeable>
 
       <ConfirmModal

@@ -63,3 +63,10 @@ export function getLogForHabitToday(habitId: string) {
     [habitId, today]
   );
 }
+
+export function getAllHabitLogs(): HabitLog[] {
+  return db.getAllSync<HabitLog>(
+    `SELECT * FROM habit_logs ORDER BY date DESC`
+  );
+}
+

@@ -12,11 +12,14 @@ type TimePickerProps = {
 const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, className }) => {
   const [show, setShow] = useState(false)
 
-  const handleChange = (_: any, selectedTime?: Date) => {
-    setShow(false)
+  const handleValueChange = (_: any, selectedTime?: Date) => {
     if (selectedTime) {
       onChange(selectedTime)
     }
+  }
+
+  const handleDismiss = () => {
+    setShow(false)
   }
 
   const formattedTime = value.toLocaleTimeString([], {
@@ -38,7 +41,8 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, className }) =
           value={value}
           mode="time"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleChange}
+          onValueChange={handleValueChange}
+          onDismiss={handleDismiss}
         />
       )}
     </View>

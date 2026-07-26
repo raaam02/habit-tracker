@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons"
-import { Image, Text, TouchableOpacity, View } from "react-native"
+import { Image, Text, Pressable, View } from "react-native"
 import { User } from "@/types/user"
 import { useRouter } from "expo-router"
 import { useMemo } from "react"
@@ -33,18 +33,22 @@ const WelcomeHeader = ({user}: {user: User}) => {
       </View>
       <View className="flex-row gap-2">
         {__DEV__ && (
-          <TouchableOpacity 
+          <Pressable 
             onPress={() => router.push("/debug/db" as any)}
+            style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
             className="h-12 w-12 bg-card rounded-full items-center justify-center shadow-sm"
           >
             <Ionicons name="bug-outline" size={20} color="#fff" />
-          </TouchableOpacity>
+          </Pressable>
         )}
         
-        <TouchableOpacity className="h-12 w-12 bg-card rounded-full items-center justify-center shadow-sm">
+        <Pressable 
+          style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+          className="h-12 w-12 bg-card rounded-full items-center justify-center shadow-sm"
+        >
           <Ionicons name="notifications-outline" size={20} color="#fff" />
           <View className="absolute top-3.5 right-4 h-1.5 w-1.5 bg-destructive rounded-full" />
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   )

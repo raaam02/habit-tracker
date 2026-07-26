@@ -25,11 +25,13 @@ const DatePicker = ({value, onChange, className} : DatePickerProps) => {
           value={value}
           mode="date"
           display="default"
-          onChange={(_event, date) => {
-            setShow(false);
+          onValueChange={(_event, date) => {
             if (date) {
               onChange(date);
             }
+          }}
+          onDismiss={() => {
+            setShow(false);
           }}
         />
       )}
