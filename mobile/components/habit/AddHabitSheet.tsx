@@ -1,6 +1,7 @@
 import { View, Text, TextInput, Pressable, Switch, Platform } from "react-native";
 import React, { useEffect, useState } from "react";
 import { BottomSheetTextInput, BottomSheetScrollView } from "@gorhom/bottom-sheet";
+
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -89,7 +90,7 @@ function AddHabitSheet({
         bgColor: habit.bgColor,
       });
     }
-  }, [open]);
+  }, [open, habit]);
 
   const submitHabit = () => {
     if (!habitName.trim()) {
@@ -145,8 +146,8 @@ function AddHabitSheet({
     <BottomSheet open={open} onClose={onClose}>
       {{
         content: (
-          <BottomSheetScrollView 
-            contentContainerStyle={{ paddingBottom: 100, gap: 24, paddingTop: 16 }} 
+          <BottomSheetScrollView
+            contentContainerStyle={{ paddingBottom: 100, gap: 24, paddingTop: 16 }}
             className="flex-1 px-6"
             showsVerticalScrollIndicator={false}
           >
@@ -282,7 +283,7 @@ function AddHabitSheet({
               maxLength={1080}
               onChangeText={(text) => {
                 const value = parseInt(text || "0")
-                
+
                 if (value > 1080) {
                   setDuration("1080")
                 } else {
@@ -292,7 +293,7 @@ function AddHabitSheet({
             />
             <Text className="text-foreground text-lg">minutes</Text>
           </View>
-          
+
           {/* Reminder Time */}
           <View className="flex-row gap-2 items-center">
             <Text className="text-foreground mb-1">Reminder at</Text>

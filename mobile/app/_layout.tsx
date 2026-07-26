@@ -18,11 +18,11 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={theme} className={"flex-1 bg-background text-foreground"}>
-        <BottomSheetModalProvider>
+      <BottomSheetModalProvider>
+        <View style={theme} className={"flex-1 bg-background text-foreground"}>
           <Stack screenOptions={{ headerShown: false }} />
-        </BottomSheetModalProvider>
-      </View>
+        </View>
+      </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );
 }
