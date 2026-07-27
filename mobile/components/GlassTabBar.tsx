@@ -6,9 +6,8 @@ import Animated, {
   useSharedValue,
   withSpring,
   useAnimatedStyle,
-  interpolateColor,
 } from "react-native-reanimated";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import AnimatedPressable from "./ui/AnimatedPressable";
 import { useColorScheme } from "nativewind";
 
@@ -19,8 +18,30 @@ const TABS = [
 ] as const;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const TAB_BAR_WIDTH = SCREEN_WIDTH * 0.90;
-const TAB_WIDTH = TAB_BAR_WIDTH / TABS.length;
+const TAB_BAR_WIDTH = Math.min(SCREEN_WIDTH * 0.85, 360);
+const TAB_WIDTH = (TAB_BAR_WIDTH - 12) / TABS.length; // Adjusted for padding
+
+function TabIcon({ name, isActive, isDark }: { name: string; isActive: boolean; isDark: boolean }) {
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    scale.value = withSpring(isActive ? 1.15 : 1, { damping: 15, stiffness: 220 });
+  }, [isActive]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <Ionicons
+        name={isActive ? (name as any) : ((name + "-outline") as any)}
+        size={22}
+        color={isActive ? "#6366f1" : isDark ? "#71717a" : "#8e8e93"}
+      />
+    </Animated.View>
+  );
+}
 
 export default function GlassTabBar() {
   const router = useRouter();
@@ -33,9 +54,9 @@ export default function GlassTabBar() {
 
   useEffect(() => {
     translateX.value = withSpring(activeIndex * TAB_WIDTH, {
-      damping: 20,
-      stiffness: 150,
-      mass: 0.8,
+      damping: 18,
+      stiffness: 160,
+      mass: 0.9,
     });
   }, [activeIndex]);
 
@@ -48,8 +69,8 @@ export default function GlassTabBar() {
       <View style={[
         styles.container,
         {
-          borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
-          backgroundColor: isDark ? "rgba(20,20,20,0.98)" : "rgba(255,255,255,0.98)",
+          borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+          backgroundColor: isDark ? "rgba(18,18,18,0.85)" : "rgba(255,255,255,0.85)",
           shadowColor: isDark ? "#000" : "#aaaaaa",
         }
       ]}>
@@ -69,14 +90,11 @@ export default function GlassTabBar() {
             <AnimatedPressable
               key={tab.route}
               style={styles.tab}
-              onPress={() => router.push(tab.route)}
-              // hapticType="light"
+              onPress={() => {
+                router.push(tab.route);
+              }}
             >
-              <Ionicons
-                name={isActive ? tab.icon : (tab.icon + "-outline") as any}
-                size={22}
-                color={isActive ? "#4F46E5" : isDark ? "#A0A0A0" : "#606060"}
-              />
+              <TabIcon name={tab.icon} isActive={isActive} isDark={isDark} />
             </AnimatedPressable>
           );
         })}
@@ -88,7 +106,7 @@ export default function GlassTabBar() {
 const styles = StyleSheet.create({
   wrapper: {
     position: "absolute",
-    bottom: 15,
+    bottom: Platform.OS === "ios" ? 24 : 16,
     left: 0,
     right: 0,
     alignItems: "center",
@@ -97,31 +115,31 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     width: TAB_BAR_WIDTH,
-    maxWidth: 400,
-    height: 64,
-    borderRadius: 32,
+    height: 54,
+    borderRadius: 27,
     overflow: "hidden",
     borderWidth: 1,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
+    paddingHorizontal: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
     elevation: 3,
   },
   tab: {
     flex: 1,
-    height: 64,
+    height: 52,
     alignItems: "center",
     justifyContent: "center",
   },
   activeIndicator: {
     position: "absolute",
-    top: 8,
-    left: 8,
-    width: TAB_WIDTH - 16,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#4F46E515", // Subtle active background
-    borderWidth: 1.5,
-    borderColor: "#4F46E530",
+    top: 7,
+    left: 6,
+    width: TAB_WIDTH,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(99, 102, 241, 0.08)", // Subtle active background
+    borderWidth: 1,
+    borderColor: "rgba(99, 102, 241, 0.16)",
   },
 });

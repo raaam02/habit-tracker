@@ -10,7 +10,6 @@ import { HabitInput } from "@/types/habit"
 import { Ionicons } from "@expo/vector-icons"
 import ProgressRingTimer from "../ui/ProgressRingTimer"
 import AnimatedPressable from "../ui/AnimatedPressable"
-import { TimeFlow } from "number-flow-react-native"
 import { updateHabitProgress } from "@/services/habit-log.service"
 import { haptic } from "@/utils/haptic"
 
@@ -175,18 +174,26 @@ export default function RunningHabitTimer({ habit, initialTime = 0, onStop, onPr
           >
             <Ionicons name={habit.icon as any} size={22} color={habit.color} />
             <Animated.View style={timerStyle}>
-              <TimeFlow
-                {...(totalSeconds > 3600 && {hours: Math.floor((reverse ? totalSeconds - seconds : seconds) / 3600)})}
-                minutes={Math.floor((reverse ? totalSeconds - seconds : seconds) / 60)}
-                seconds={(reverse ? totalSeconds - seconds : seconds) % 60}
-                trend={reverse ? -1 : 1}
-                style={{
-                  fontSize: 36,
-                  fontWeight: "bold",
-                  textAlign: "center",
-                  color: "white",
-                }}
-              />
+              {(() => {
+                const timeToDisplay = reverse ? totalSeconds - seconds : seconds;
+                const hrs = Math.floor(timeToDisplay / 3600);
+                const mins = Math.floor((timeToDisplay % 3600) / 60);
+                const secs = timeToDisplay % 60;
+                const timeString = `${hrs > 0 ? hrs.toString().padStart(2, '0') + ':' : ''}${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                return (
+                  <Text
+                    style={{
+                      fontSize: 36,
+                      fontWeight: "bold",
+                      textAlign: "center",
+                      color: "white",
+                      fontVariant: ["tabular-nums"]
+                    }}
+                  >
+                    {timeString}
+                  </Text>
+                );
+              })()}
             </Animated.View>
           </ProgressRingTimer>
 

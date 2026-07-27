@@ -1,10 +1,9 @@
-import { View, Pressable } from "react-native";
+import { View, Pressable, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Button from "./ui/Button";
 import { cn } from "@/utils/cn";
-import Animated, { FadeInDown, FadeOutUp } from "react-native-reanimated";
 import { haptic } from "@/utils/haptic";
 import { COLORS, ICONS } from "@/utils/constants";
+import React from "react";
 
 export interface color {
   name: string, 
@@ -17,53 +16,76 @@ interface IconPickerProps {
   icon: string;
   onSelectIcon: (icon: string) => void;
   onSelectColor: (color: color) => void;
-  onClose: (close: boolean) => void;
-  className: string;
 }
 
-export default function IconPicker({ onSelectIcon, onSelectColor, onClose, color, icon, className } : IconPickerProps) {
+export default function IconPicker({ onSelectIcon, onSelectColor, color, icon } : IconPickerProps) {
   return (
-    <Animated.View 
-      className={cn("flex items-center justify-center w-full p-4 gap-4 bg-muted border border-border rounded-3xl", className)}
-      entering={FadeInDown.duration(200)}
-      exiting={FadeOutUp.duration(150)}
-    >
-      <View className="flex-row flex-wrap gap-2 items-center justify-center">
-        {ICONS.map((i) => (
-          <Pressable
-            key={i}
-            onPress={() => {
-              onSelectIcon(i)
-              haptic.light()
-            }}
-            className={cn('w-12 h-12 items-center justify-center rounded-lg')}
-          >
-            <Ionicons name={i as any} size={22} color={i === icon ? `${color.color}` : "#555"} />
-          </Pressable>
-        ))}
-      </View>
+    <View className="flex-1 w-full gap-6">
+      
+      {/* Colors Section */}
       <View>
-          <View className="flex-row gap-2 bg-muted p-1 rounded-lg">
-            {COLORS.map((c, index) => (
+        <Text className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
+          Select Brand Color
+        </Text>
+        <View className="flex-row flex-wrap gap-3 justify-center bg-muted/40 p-3 rounded-3xl border border-border/20">
+          {COLORS.map((c, index) => {
+            const isSelected = color.color === c.color;
+            return (
               <Pressable
                 key={index}
                 onPress={() => {
-                  onSelectColor(c)
-                  haptic.light()
+                  onSelectColor(c);
+                  haptic.light();
                 }}
-                className={cn('w-10 h-10 rounded-md items-center justify-center')}
                 style={{ backgroundColor: c.color }}
+                className={cn(
+                  'w-10 h-10 rounded-full items-center justify-center border-2 border-transparent shadow-sm',
+                  isSelected && 'border-white'
+                )}
               >
-                {color.color === c.color && (
-                  <Ionicons name="checkmark" size={24} color="white" />
+                {isSelected && (
+                  <Ionicons name="checkmark" size={20} color="white" />
                 )}
               </Pressable>
-            ))}
-          </View>
+            );
+          })}
         </View>
-        <View className="w-full">
-          <Button className="w-full" label="Close" variant="outline" onPress={() => { onClose(false); haptic.light()}} />
+      </View>
+
+      {/* Icons Section */}
+      <View className="flex-1">
+        <Text className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
+          Select Icon symbol
+        </Text>
+        <View className="flex-row flex-wrap gap-2.5 items-center justify-center bg-muted/40 p-4 rounded-3xl border border-border/20">
+          {ICONS.map((i) => {
+            const isSelected = i === icon;
+            return (
+              <Pressable
+                key={i}
+                onPress={() => {
+                  onSelectIcon(i);
+                  haptic.light();
+                }}
+                style={{
+                  backgroundColor: isSelected ? color.bgColor : "transparent",
+                }}
+                className={cn(
+                  'w-12 h-12 items-center justify-center rounded-2xl border border-transparent',
+                  isSelected && 'border-border/30'
+                )}
+              >
+                <Ionicons 
+                  name={i as any} 
+                  size={22} 
+                  color={isSelected ? color.color : "#71717a"} 
+                />
+              </Pressable>
+            );
+          })}
         </View>
-    </Animated.View>
+      </View>
+
+    </View>
   );
 }

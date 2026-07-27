@@ -1,5 +1,5 @@
-import { Pressable, Text, TouchableOpacity, View } from 'react-native'
-import React, { useState } from 'react'
+import { Pressable, Text, View } from 'react-native'
+import React, { useState, useEffect } from 'react'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { HabitInput } from '@/types/habit'
 import { router } from 'expo-router'
@@ -13,7 +13,7 @@ import ReasonModal from '../ui/ReasonModal'
 import AnimatedPressable from '../ui/AnimatedPressable'
 import { useColorScheme } from 'nativewind'
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
-import Animated, { useAnimatedStyle, SharedValue } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, SharedValue, useSharedValue, withSpring } from 'react-native-reanimated';
 
 interface HabitCardProps {
   habit: HabitInput,
@@ -27,40 +27,54 @@ interface HabitCardProps {
 }
 
 function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTimer, isHabitRunning, isHabitPaused, setIsHabitPaused }: HabitCardProps) {
-
   const { colorScheme } = useColorScheme();
   const isDark = colorScheme === "dark";
 
   const streak = calculateCurrentStreak(habit.id)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [showReason, setShowReason] = useState(false)
+  const [todayLog, setTodayLog] = useState<any>(null)
 
   const menuRef = React.useRef<View>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
 
+  // Load today's log state on mount / update
+  useEffect(() => {
+    try {
+      const log = getLogForHabitToday(habit.id);
+      setTodayLog(log);
+    } catch (e) {
+      console.warn("Failed to get today's log in HabitCard:", e);
+    }
+  }, [habit.id]);
+
   const handleDone = () => {
+    haptic.notificationSuccess();
     const targetSeconds = (habit?.duration || 0) * 60;
     updateHabitProgress(habit.id, targetSeconds || 1);
-    haptic.notificationSuccess();
-    loadHabits?.(); // Reload to reflect changes
+    // Reload logs
+    const log = getLogForHabitToday(habit.id);
+    setTodayLog(log);
+    loadHabits?.(); // Reload parent
   }
 
   const handleSkip = (reason: string) => {
-    markHabitMissed(habit.id, reason);
-    setShowReason(false);
     haptic.notificationSuccess();
+    markHabitMissed(habit.id, reason);
+    const log = getLogForHabitToday(habit.id);
+    setTodayLog(log);
+    setShowReason(false);
     loadHabits?.();
   };
 
   const handleTimer = () => {
+    haptic.light();
     if (isHabitRunning) {
       setIsHabitPaused(!isHabitPaused)
-      haptic.light()
       return
     }
     startTimer(habit)
     setIsHabitPaused?.(true)
-    haptic.light()
   }
 
   const handleDelete = () => {
@@ -77,10 +91,8 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
   }
 
   const HabitLongPressMenus = [
-    { name: "Pin", icon: "pin", color: "white", action: () => { } },
     { name: "Edit", icon: "pencil", color: "white", action: () => { handleEdit() } },
-    { name: "Archive", icon: "archive", color: "white", action: () => { } },
-    { name: "Delete", icon: "delete", color: "#e44444", action: () => { handleDelete() } }
+    { name: "Delete", icon: "delete", color: "#ef4444", action: () => { handleDelete() } }
   ]
 
   const LeftAction = (prog: SharedValue<number>, drag: SharedValue<number>) => {
@@ -121,14 +133,26 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
 
   const swipeableRef = React.useRef<any>(null);
 
+  // Status mapping
+  const isDone = todayLog?.status === "done" || (todayLog?.completedTime && todayLog?.targetTime && todayLog.completedTime >= todayLog.targetTime);
+  const isSkipped = todayLog?.status === "skipped";
+
+  // Calculate progress percent
+  const progressPercent = (() => {
+    if (!todayLog) return 0;
+    const target = todayLog.targetTime || (habit.duration || 0) * 60 || 1;
+    const completed = todayLog.completedTime || 0;
+    return Math.min(100, Math.floor((completed / target) * 100));
+  })();
+
   return (
     <>
       <ReanimatedSwipeable
         ref={swipeableRef}
-        friction={2}
+        friction={1.5}
         enableTrackpadTwoFingerGesture
-        rightThreshold={40}
-        leftThreshold={40}
+        rightThreshold={50}
+        leftThreshold={50}
         renderLeftActions={LeftAction}
         renderRightActions={RightAction}
         onSwipeableOpen={(direction) => {
@@ -137,7 +161,6 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
           } else {
             setShowReason(true);
           }
-          // Close the swipeable row immediately so it doesn't stay open
           swipeableRef.current?.close();
           haptic.light();
         }}
@@ -149,112 +172,111 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
             setMenuOpen(true)
           }}
           key={habit.id.toString()}
-          className="p-4 px-3 my-1 rounded-3xl flex-row items-center justify-between gap-4 bg-card"
-          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+          className="p-4 px-4 my-1 rounded-3xl flex-row items-center justify-between gap-4 bg-card border border-border/20 shadow-sm"
+          style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
           onPress={() => router.push(`/habit/${habit.id}`)}
         >
-
-        {/* <View className="flex-row items-center gap-4"> */}
-        <View
-          style={{ backgroundColor: habit.bgColor + (isDark ? '20' : '80') }}
-          className="h-14 w-14 rounded-full items-center justify-center"
-        >
-          <Ionicons name={habit.icon as any} size={24} color={habit.color} />
-        </View>
-
-        <View className='flex-1'>
-          <Text className="font-bold text-foreground">
-            {habit.name}
-          </Text>
-
-          <View className="flex flex-row gap-1 items-center mt-0.5">
-            <Text className="text-muted-foreground text-sm font-bold">
-              🔥 {streak}
-            </Text>
-
-            <Text className="text-muted-foreground text-sm">
-              day streak
-            </Text>
+          {/* Left Icon */}
+          <View
+            style={{ backgroundColor: habit.bgColor + (isDark ? '20' : '50') }}
+            className="h-12 w-12 rounded-2xl items-center justify-center border border-border/10"
+          >
+            <Ionicons name={habit.icon as any} size={22} color={habit.color} />
           </View>
 
-          {/* PROGRESS BAR */}
-          {/* {(() => {
-            const todayLog = getLogForHabitToday(habit.id);
-            if (todayLog) {
-              const target = todayLog.targetTime || (habit.duration || 0) * 60 || 1;
-              const completed = todayLog.completedTime || 0;
-              const progress = Math.min(1, completed / target);
-              const isDone = completed >= target || todayLog.status === 'done';
+          {/* Center Details */}
+          <View className='flex-1 justify-center'>
+            <Text className={`font-bold text-foreground text-base ${isDone ? "line-through text-muted-foreground/70" : ""}`}>
+              {habit.name}
+            </Text>
 
-              return (
-                <View className="mt-2">
-                  <View className="h-1 w-full bg-muted rounded-full overflow-hidden">
-                    <View 
-                      className={`h-full rounded-full ${isDone ? 'bg-emerald-500' : 'bg-primary'}`}
-                      style={{ width: `${progress * 100}%` }}
-                    />
-                  </View>
-                </View>
-              );
-            }
-            return null;
-          })()} */}
-        </View>
-        {/* </View> */}
-
-        {/* RIGHT ACTION BUTTON */}
-        {habit.duration ? (
-          <AnimatedPressable
-            onPress={handleTimer}
-            className="h-10 w-10 rounded-full items-center justify-center bg-primary"
-            hapticType="light"
-          >
-            <Ionicons
-              name={(isHabitRunning && !isHabitPaused) ? "pause" : "play"}
-              size={20}
-              color="white"
-            />
-          </AnimatedPressable>
-        ) : (
-          <Pressable
-            onPress={handleDone}
-            style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-            className="h-10 w-10 rounded-full items-center justify-center bg-primary"
-          >
-            <Ionicons name="checkmark" size={20} color="white" />
-          </Pressable>
-        )}
-
-        {menuOpen && (
-          <Popover
-            side="top"
-            offset={0}
-            align="center"
-            visible={menuOpen}
-            anchorRef={menuRef}
-            onClose={() => setMenuOpen(false)}
-          >
-            <View className='flex-row'>
-              {HabitLongPressMenus.map((menu, index) => (
-                <Pressable
-                  key={index}
-                  onPress={menu.action}
-                  style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-                  className="p-2"
-                >
-                  <MaterialCommunityIcons name={menu.icon as any} size={24} color={menu.color} />
-                </Pressable>
-              ))}
+            <View className="flex-row items-center gap-2 mt-0.5">
+              <Text className="text-muted-foreground text-xs font-semibold">
+                🔥 {streak} day streak
+              </Text>
+              
+              {habit.reminderEnabled && habit.reminderTime ? (
+                <>
+                  <Text className="text-muted-foreground/30 text-xs">•</Text>
+                  <Text className="text-muted-foreground text-xs flex-row items-center">
+                    ⏰ {habit.reminderTime}
+                  </Text>
+                </>
+              ) : null}
             </View>
-          </Popover>
-        )}
 
-      </Pressable>
+            {/* PROGRESS BAR */}
+            {todayLog && progressPercent > 0 && !isDone && (
+              <View className="mt-2 w-[85%]">
+                <View className="h-[3px] w-full bg-muted/30 rounded-full overflow-hidden">
+                  <View 
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Right Action Button */}
+          {isDone ? (
+            <View className="h-9 w-9 rounded-full bg-emerald-500/10 border border-emerald-500/20 items-center justify-center">
+              <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+            </View>
+          ) : isSkipped ? (
+            <View className="h-9 w-9 rounded-full bg-zinc-500/10 border border-zinc-500/20 items-center justify-center">
+              <Ionicons name="close-circle-outline" size={22} color="gray" />
+            </View>
+          ) : habit.duration ? (
+            <AnimatedPressable
+              onPress={handleTimer}
+              className={`h-9 w-9 rounded-full items-center justify-center ${isHabitRunning && !isHabitPaused ? 'bg-amber-500' : 'bg-primary'}`}
+              hapticType="light"
+            >
+              <Ionicons
+                name={(isHabitRunning && !isHabitPaused) ? "pause" : "play"}
+                size={18}
+                color="white"
+              />
+            </AnimatedPressable>
+          ) : (
+            <AnimatedPressable
+              onPress={handleDone}
+              className="h-9 w-9 rounded-full items-center justify-center bg-primary"
+              hapticType="light"
+            >
+              <Ionicons name="checkmark" size={18} color="white" />
+            </AnimatedPressable>
+          )}
+
+          {menuOpen && (
+            <Popover
+              side="top"
+              offset={0}
+              align="center"
+              visible={menuOpen}
+              anchorRef={menuRef}
+              onClose={() => setMenuOpen(false)}
+            >
+              <View className='flex-row bg-popover border border-border p-1 rounded-xl shadow-lg'>
+                {HabitLongPressMenus.map((menu, index) => (
+                  <Pressable
+                    key={index}
+                    onPress={menu.action}
+                    style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                    className="p-2 px-3 rounded-lg"
+                  >
+                    <MaterialCommunityIcons name={menu.icon as any} size={20} color={menu.color} />
+                  </Pressable>
+                ))}
+              </View>
+            </Popover>
+          )}
+        </Pressable>
       </ReanimatedSwipeable>
 
       <ConfirmModal
         visible={confirmDelete}
-        // title="Delete Habit"
         description="Delete this habit?"
         confirmText="Delete"
         variant="destructive"
