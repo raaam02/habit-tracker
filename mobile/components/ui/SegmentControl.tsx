@@ -1,14 +1,17 @@
 import { View, Text, Pressable, LayoutChangeEvent } from "react-native";
-import { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
 import { haptic } from "@/utils/haptic";
 
+type Option = string | { label: string; icon: string };
+
 type Props = {
-  options: string[];
+  options: Option[];
   valueIndex: number;
   onChange: (valueIndex: number) => void;
 };
@@ -19,62 +22,75 @@ export default function SegmentedControl({
   onChange,
 }: Props) {
   const [width, setWidth] = useState(0);
-
   const translateX = useSharedValue(0);
 
-  const segmentWidth = width / options.length - 2;
+  const segmentWidth = width > 0 ? width / options.length - 2 : 0;
 
   const onLayout = (e: LayoutChangeEvent) => {
     setWidth(e.nativeEvent.layout.width);
   };
 
-  const moveIndicator = (index: number) => {
-    translateX.value = withTiming(index * segmentWidth, {
-      duration: 280,
-    });
-  };
+  const moveIndicator = useCallback((index: number) => {
+    if (segmentWidth > 0) {
+      translateX.value = withTiming(index * segmentWidth, {
+        duration: 250,
+      });
+    }
+  }, [segmentWidth, translateX]);
 
   useEffect(() => {
     if (width > 0) {
       moveIndicator(valueIndex);
     }
-  }, [valueIndex, width]);
+  }, [valueIndex, width, moveIndicator]);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
-    width: segmentWidth,
+    width: segmentWidth || "100%",
   }));
 
   return (
     <View
       onLayout={onLayout}
-      className="flex-row bg-muted rounded-xl p-1 relative"
+      className="flex-row bg-muted/50 rounded-2xl p-1 relative"
     >
       {/* sliding indicator */}
-      <Animated.View
-        className="absolute top-1 bottom-1 mx-1 bg-background rounded-lg"
-        style={indicatorStyle}
-      />
+      {width > 0 && (
+        <Animated.View
+          className="absolute top-1 bottom-1 mx-1 bg-background rounded-xl"
+          style={indicatorStyle}
+        />
+      )}
 
       {options.map((option, index) => {
         const active = index === valueIndex;
+        const isObject = typeof option !== "string";
+        const label = isObject ? option.label : option;
+        const iconName = isObject ? option.icon : undefined;
 
         return (
           <Pressable
-            key={option}
+            key={index}
             onPress={() => {
               moveIndicator(index);
               haptic.light();
               onChange(index);
             }}
-            className="flex-1 py-2 items-center justify-center"
+            className="flex-1 py-3 items-center justify-center flex-row gap-2"
           >
+            {iconName && (
+              <Ionicons
+                name={iconName as any}
+                size={16}
+                color={active ? "#6366f1" : "#71717a"}
+              />
+            )}
             <Text
-              className={`text-sm font-medium ${
+              className={`text-sm font-semibold tracking-tight ${
                 active ? "text-foreground" : "text-muted-foreground"
               }`}
             >
-              {option}
+              {label}
             </Text>
           </Pressable>
         );

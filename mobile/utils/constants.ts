@@ -2,7 +2,7 @@ import { color } from "@/components/IconPicker";
 
 export const DAYS_OF_WEEK = ["S", "M", "T", "W", "T", "F", "S"];
 
-export const FREQUENCY_OPTIONS = ["Daily", "Weekly", "Monthly", "Yearly"];
+export const FREQUENCY_OPTIONS = ["Daily", "Weekly", "Monthly"];
 
 export const ICONS = [
   "book",

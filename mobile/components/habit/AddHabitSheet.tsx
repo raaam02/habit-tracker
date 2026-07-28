@@ -155,11 +155,11 @@ function AddHabitSheet({
             >
               {/* Form Section: Details */}
               <View className="gap-5">
-                
+
                 {/* Icon Selection preview */}
                 <View className="items-center mt-2">
                   <Pressable
-                    className="w-20 h-20 rounded-full items-center justify-center border-2 border-dashed border-border/60"
+                    className="w-20 h-20 rounded-full items-center justify-center border border-dashed"
                     style={{
                       backgroundColor: color.bgColor,
                     }}
@@ -177,14 +177,11 @@ function AddHabitSheet({
 
                 {/* Habit Name Input */}
                 <View>
-                  <Text className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mb-1.5 ml-1">
-                    Habit Title
-                  </Text>
                   <Animated.View style={animatedStyle}>
                     <BottomSheetTextInput
                       placeholder="e.g., Read books"
                       placeholderTextColor="gray"
-                      className="border border-border rounded-2xl px-5 py-4 text-foreground bg-card text-base"
+                      className="rounded-2xl text-foreground text-base"
                       value={habitName}
                       maxLength={40}
                       onChangeText={(text) => {
@@ -193,21 +190,15 @@ function AddHabitSheet({
                       }}
                     />
                   </Animated.View>
-                  <View className="flex-row justify-between mt-1 px-1">
-                    <Text className="text-destructive text-xs">{error}</Text>
-                    <Text className="text-muted-foreground/60 text-xs">
-                      {habitName.length} / 40
-                    </Text>
-                  </View>
                 </View>
 
                 {/* Habit Type Selection */}
                 <View>
-                  <Text className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mb-1.5 ml-1">
-                    Target Goal
-                  </Text>
                   <SegmentedControl
-                    options={["Task-based", "Time-based"]}
+                    options={[
+                      { label: "Check-in", icon: "checkmark-circle-outline" },
+                      { label: "Timer", icon: "time-outline" }
+                    ]}
                     valueIndex={habitType}
                     onChange={setHabitType}
                   />
@@ -217,15 +208,9 @@ function AddHabitSheet({
 
               {/* Form Section: Schedule */}
               <View className="gap-5">
-                <Text className="text-xs font-bold text-muted-foreground uppercase tracking-widest border-b border-border/20 pb-2 mt-4">
-                  Schedule
-                </Text>
 
                 {/* Frequency selection */}
                 <View>
-                  <Text className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mb-1.5 ml-1">
-                    Frequency
-                  </Text>
                   <SegmentedControl
                     options={FREQUENCY_OPTIONS}
                     valueIndex={frequency}
@@ -283,12 +268,12 @@ function AddHabitSheet({
 
                 {/* Duration and Time selectors row */}
                 <View className="flex-row justify-between items-center gap-4 mt-2">
-                  
+
                   {/* Goal duration (if Time-based) */}
                   {habitType === 1 ? (
                     <View className="flex-1">
-                      <Text className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mb-1.5 ml-1">
-                        Duration (m)
+                      <Text className="text-muted-foreground text-sm tracking-widest mb-1.5 ml-1">
+                        Duration
                       </Text>
                       <View className="flex-row items-center gap-2">
                         <TextInput
@@ -316,12 +301,12 @@ function AddHabitSheet({
 
                   {/* Reminder Time */}
                   <View className="items-end">
-                    <Text className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mb-1.5 mr-1">
+                    <Text className="text-muted-foreground text-sm tracking-widest mb-1.5 mr-1">
                       Reminder
                     </Text>
                     <TimePicker value={reminderTime} onChange={setReminderTime} />
                   </View>
-                  
+
                 </View>
 
               </View>
@@ -348,8 +333,8 @@ function AddHabitSheet({
       <BottomSheet open={showIconPicker} onClose={() => setShowIconPicker(false)}>
         {{
           content: (
-            <ScrollView 
-              className="px-6 py-4 flex-grow-0" 
+            <ScrollView
+              className="px-6 py-4 flex-grow-0"
               contentContainerStyle={{ paddingBottom: 60 }}
               showsVerticalScrollIndicator={false}
             >

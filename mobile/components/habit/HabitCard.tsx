@@ -13,7 +13,7 @@ import ReasonModal from '../ui/ReasonModal'
 import AnimatedPressable from '../ui/AnimatedPressable'
 import { useColorScheme } from 'nativewind'
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
-import Animated, { useAnimatedStyle, SharedValue, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, SharedValue } from 'react-native-reanimated';
 
 interface HabitCardProps {
   habit: HabitInput,
@@ -114,7 +114,7 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
 
   const RightAction = (prog: SharedValue<number>, drag: SharedValue<number>) => {
     const style = useAnimatedStyle(() => ({
-      width: Math.abs(drag.value),
+      width: drag.value,
     }));
     const iconStyle = useAnimatedStyle(() => ({
       transform: [{ scale: prog.value }],
@@ -176,7 +176,7 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
           style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
           onPress={() => router.push(`/habit/${habit.id}`)}
         >
-          {/* Left Icon */}
+          {/* Left Icon (Colored circular background with solid icon symbol) */}
           <View
             style={{ backgroundColor: habit.bgColor + (isDark ? '20' : '50') }}
             className="h-12 w-12 rounded-2xl items-center justify-center border border-border/10"
@@ -190,64 +190,93 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
               {habit.name}
             </Text>
 
+            {/* Streak & Info (Flame colors match habit themes perfectly!) */}
             <View className="flex-row items-center gap-2 mt-0.5">
-              <Text className="text-muted-foreground text-xs font-semibold">
-                🔥 {streak} day streak
-              </Text>
-              
-              {habit.reminderEnabled && habit.reminderTime ? (
+
+              {isHabitRunning ? (
+                <View className="flex-row items-center gap-1">
+                  <Ionicons name="time" size={14} color="#f59e0b" />
+                  <Text className="text-amber-500 text-xs font-bold">
+                    Running...
+                  </Text>
+                </View>
+              ) : (
+                <View className="flex-row items-center gap-1">
+                  <Ionicons name="flame" size={14} color={habit.color} />
+                  <Text style={{ color: habit.color }} className="text-xs font-bold">
+                    {streak} {streak === 1 ? 'day' : 'days'}
+                  </Text>
+                </View>
+              )}
+
+              {/*{habit.reminderEnabled && habit.reminderTime ? (
                 <>
                   <Text className="text-muted-foreground/30 text-xs">•</Text>
                   <Text className="text-muted-foreground text-xs flex-row items-center">
                     ⏰ {habit.reminderTime}
                   </Text>
                 </>
-              ) : null}
+              ) : null}*/}
             </View>
 
             {/* PROGRESS BAR */}
             {todayLog && progressPercent > 0 && !isDone && (
               <View className="mt-2 w-[85%]">
                 <View className="h-[3px] w-full bg-muted/30 rounded-full overflow-hidden">
-                  <View 
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${progressPercent}%` }}
+                  <View
+                    style={{ width: `${progressPercent}%`, backgroundColor: habit.color }}
+                    className="h-full rounded-full"
                   />
                 </View>
               </View>
             )}
           </View>
 
-          {/* Right Action Button */}
-          {isDone ? (
-            <View className="h-9 w-9 rounded-full bg-emerald-500/10 border border-emerald-500/20 items-center justify-center">
-              <Ionicons name="checkmark-circle" size={24} color="#10b981" />
-            </View>
-          ) : isSkipped ? (
-            <View className="h-9 w-9 rounded-full bg-zinc-500/10 border border-zinc-500/20 items-center justify-center">
-              <Ionicons name="close-circle-outline" size={22} color="gray" />
-            </View>
-          ) : habit.duration ? (
-            <AnimatedPressable
-              onPress={handleTimer}
-              className={`h-9 w-9 rounded-full items-center justify-center ${isHabitRunning && !isHabitPaused ? 'bg-amber-500' : 'bg-primary'}`}
-              hapticType="light"
-            >
-              <Ionicons
-                name={(isHabitRunning && !isHabitPaused) ? "pause" : "play"}
-                size={18}
-                color="white"
+          {/* Right Action Button (Matches mockup checkmark circles exactly) */}
+          <View className="h-9 items-center justify-center">
+            {isDone ? (
+              // Solid circle colored to match habit theme, with white checkmark
+              <AnimatedPressable
+                onPress={handleDone}
+                style={{ backgroundColor: habit.color }}
+                className="h-8 w-8 rounded-full items-center justify-center"
+              >
+                <Ionicons name="checkmark" size={20} color="white" />
+              </AnimatedPressable>
+            ) : isSkipped ? (
+              // Skipped indicator
+              <View className="h-6 w-6 rounded-full bg-zinc-500/10 border border-zinc-500/20 items-center justify-center">
+                <Ionicons name="close" size={12} color="gray" />
+              </View>
+            ) : isHabitRunning ? (
+              // Ticking state: filled color circle with pause icon
+              <AnimatedPressable
+                onPress={handleTimer}
+                className="h-6 w-6 rounded-full items-center justify-center shadow-sm"
+                hapticType="light"
+              >
+                <Ionicons name="pause" size={20} color="white" />
+              </AnimatedPressable>
+            ) : habit.duration ? (
+              // Timer habit: hollow circle containing play icon
+              <AnimatedPressable
+                onPress={handleTimer}
+                style={{ borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)" }}
+                className="h-6 w-6 rounded-full items-center justify-center"
+                hapticType="light"
+              >
+                <Ionicons name="play" size={20} color={habit.color} style={{ marginLeft: 1 }} />
+              </AnimatedPressable>
+            ) : (
+              // Check-in habit: hollow circle
+              <AnimatedPressable
+                onPress={handleDone}
+                style={{ borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)" }}
+                className="h-6 w-6 rounded-full border-2"
+                hapticType="light"
               />
-            </AnimatedPressable>
-          ) : (
-            <AnimatedPressable
-              onPress={handleDone}
-              className="h-9 w-9 rounded-full items-center justify-center bg-primary"
-              hapticType="light"
-            >
-              <Ionicons name="checkmark" size={18} color="white" />
-            </AnimatedPressable>
-          )}
+            )}
+          </View>
 
           {menuOpen && (
             <Popover

@@ -29,7 +29,7 @@ function BottomSheet({
   const isPresentedRef = useRef(false);
   const snapPoints = useMemo(() => ["90%"], []);
   const { colorScheme } = useColorScheme();
-  
+
   const themeStyle = colorScheme === "dark" ? themes.main.dark : themes.main.light;
 
   const renderBackdrop = useCallback(
@@ -77,8 +77,8 @@ function BottomSheet({
       }}
       backgroundStyle={{
         borderRadius: 24,
-        borderWidth: 1,
-        borderColor: colorScheme === 'dark' ? "hsl(0 0% 10%)" : "hsl(0 0% 95%)",
+        // borderTopWidth: 1,
+        // borderColor: colorScheme === 'dark' ? "hsl(0 0% 10%)" : "hsl(0 0% 95%)",
         backgroundColor: colorScheme === 'dark' ? "hsl(0 0% 5%)" : "hsl(0 0% 100%)",
       }}
       footerComponent={({ animatedFooterPosition }) => (

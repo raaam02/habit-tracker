@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, Pressable, FlatList, Platform } from "react-native";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import AddHabitSheet from "@/components/habit/AddHabitSheet";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Habit, HabitInput, HabitLog } from "@/types/habit";
@@ -64,11 +64,20 @@ export default function HomeScreen() {
       }
     }
   }, [isFocused]);
-  
+
+  const completedCount = useMemo(() => {
+    return habits.filter(h => {
+      const log = getLogForHabitToday(h.id);
+      return log?.status === 'done' || (log?.completedTime && log?.targetTime && log.completedTime >= log.targetTime);
+    }).length;
+  }, [habits]);
+
+  const totalCount = habits.length;
+
   return (
     <>
       <SafeAreaView className="flex-1 bg-background text-foreground">
-        
+
         {loading ? (
           <ScrollView className="px-6 py-4" showsVerticalScrollIndicator={false}>
             <SkeletonProfile />
@@ -113,8 +122,8 @@ export default function HomeScreen() {
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={
               <View className="mb-4">
-                <WelcomeHeader user={user} />
-                
+                <WelcomeHeader user={user} completedCount={completedCount} totalCount={totalCount} />
+
                 {runningHabit ? (
                   <RunningHabitTimer
                     habit={runningHabit}
@@ -140,15 +149,9 @@ export default function HomeScreen() {
                   />
                 ) : (
                   <View>
-                    <StreakSummary streak={habits.length > 0 ? 5 : 0} />
-                    <HabitHeatmap logs={logs} />
+                    {/*<StreakSummary streak={habits.length > 0 ? 5 : 0} />*/}
+                    {/*<HabitHeatmap logs={logs} />*/}
                   </View>
-                )}
-                
-                {habits.length > 0 && (
-                  <Text className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-8 mb-2 ml-1">
-                    Your Habits
-                  </Text>
                 )}
               </View>
             }
@@ -168,7 +171,7 @@ export default function HomeScreen() {
 
         {/* Floating Add Action */}
         {!loading && (
-          <View className="absolute bottom-20 right-6 z-50">
+          <View className="absolute bottom-24 right-6 z-50">
             <AnimatedPressable
               onPress={() => {
                 setOpenHabitSheet(true)
@@ -192,14 +195,14 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <AddHabitSheet 
-          habit={editHabit} 
-          loadHabits={loadHabits} 
-          open={openHabitSheet} 
+        <AddHabitSheet
+          habit={editHabit}
+          loadHabits={loadHabits}
+          open={openHabitSheet}
           onClose={() => {
-            setOpenHabitSheet(false); 
+            setOpenHabitSheet(false);
             setEditHabit(null);
-          }} 
+          }}
         />
       </SafeAreaView>
     </>
