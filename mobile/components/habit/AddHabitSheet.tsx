@@ -1,6 +1,6 @@
-import { View, Text, TextInput, Pressable, Platform } from "react-native";
+import { View, Text, TextInput, Pressable, Modal, ScrollView } from "react-native";
 import React, { useEffect, useState } from "react";
-import { BottomSheetTextInput, BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -12,7 +12,6 @@ import DatePicker from "../ui/DatePicker";
 import SegmentedControl from "../ui/SegmentControl";
 
 import { haptic } from "@/utils/haptic";
-import { ScrollView } from "react-native-gesture-handler";
 import { createHabit, updateHabit } from "@/services/habit.service";
 import { shakeAnimation } from "@/utils/animation";
 import { Ionicons } from "@expo/vector-icons";
@@ -39,7 +38,7 @@ function AddHabitSheet({
   const [reminderTime, setReminderTime] = useState<Date>(new Date());
 
   const [duration, setDuration] = useState("10");
-  const [habitType, setHabitType] = useState(0); // 0 = Task-based, 1 = Time-based
+  const [habitType, setHabitType] = useState(0); // 0 = Check-in, 1 = Timer
 
   const [frequency, setFrequency] = useState(0);
   const [days, setDays] = useState<number[]>([]);
@@ -101,13 +100,6 @@ function AddHabitSheet({
       return;
     }
 
-    if (habitName.length > 40) {
-      setError("Habit name cannot exceed 40 characters");
-      haptic.notificationError();
-      shake.value = shakeAnimation(6);
-      return;
-    }
-
     if (isEdit && habit) {
       updateHabit({
         id: habit.id,
@@ -145,21 +137,18 @@ function AddHabitSheet({
 
   return (
     <>
+      {/* Dynamic Sizing (Content Height) Add Habit Sheet */}
       <BottomSheet open={open} onClose={onClose}>
         {{
           content: (
-            <BottomSheetScrollView
-              contentContainerStyle={{ paddingBottom: 120, gap: 24, paddingTop: 16 }}
-              className="flex-1 px-6"
-              showsVerticalScrollIndicator={false}
-            >
+            <View className="px-6 pt-4 pb-6 gap-6">
               {/* Form Section: Details */}
-              <View className="gap-5">
+              <View className="gap-6">
 
                 {/* Icon Selection preview */}
                 <View className="items-center mt-2">
                   <Pressable
-                    className="w-20 h-20 rounded-full items-center justify-center border border-dashed"
+                    className="w-20 h-20 rounded-full items-center justify-center"
                     style={{
                       backgroundColor: color.bgColor,
                     }}
@@ -181,15 +170,17 @@ function AddHabitSheet({
                     <BottomSheetTextInput
                       placeholder="e.g., Read books"
                       placeholderTextColor="gray"
-                      className="rounded-2xl text-foreground text-base"
+                      className="rounded-2xl px-5 py-4.5 text-foreground bg-muted/30 text-base"
                       value={habitName}
-                      maxLength={40}
                       onChangeText={(text) => {
                         setHabitName(text);
                         if (error) setError("");
                       }}
                     />
                   </Animated.View>
+                  {error ? (
+                    <Text className="text-destructive text-xs mt-1.5 ml-1">{error}</Text>
+                  ) : null}
                 </View>
 
                 {/* Habit Type Selection */}
@@ -207,7 +198,7 @@ function AddHabitSheet({
               </View>
 
               {/* Form Section: Schedule */}
-              <View className="gap-5">
+              <View className="gap-6">
 
                 {/* Frequency selection */}
                 <View>
@@ -220,50 +211,40 @@ function AddHabitSheet({
 
                 {/* Days of week */}
                 {frequency === 1 && (
-                  <View>
-                    <Text className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mb-2 ml-1">
-                      Days of week
-                    </Text>
-                    <View className="flex-row gap-2 justify-between">
-                      {DAYS_OF_WEEK.map((day, index) => {
-                        const selected = days.includes(index);
-                        return (
-                          <Pressable
-                            key={index}
-                            onPress={() => {
-                              if (selected) {
-                                setDays(days.filter((d) => d !== index));
-                              } else {
-                                setDays([...days, index]);
-                              }
-                              haptic.light();
-                            }}
-                            className={`w-10 h-10 rounded-full items-center justify-center border ${
-                              selected ? "bg-primary border-primary" : "bg-card border-border/40"
+                  <View className="flex-row gap-2 justify-between">
+                    {DAYS_OF_WEEK.map((day, index) => {
+                      const selected = days.includes(index);
+                      return (
+                        <Pressable
+                          key={index}
+                          onPress={() => {
+                            if (selected) {
+                              setDays(days.filter((d) => d !== index));
+                            } else {
+                              setDays([...days, index]);
+                            }
+                            haptic.light();
+                          }}
+                          className={`w-10 h-10 rounded-full items-center justify-center ${
+                            selected ? "bg-primary" : "bg-muted/30"
+                          }`}
+                        >
+                          <Text
+                            className={`text-xs font-semibold ${
+                              selected ? "text-primary-foreground font-bold" : "text-muted-foreground"
                             }`}
                           >
-                            <Text
-                              className={`text-xs font-semibold ${
-                                selected ? "text-primary-foreground font-bold" : "text-muted-foreground"
-                              }`}
-                            >
-                              {day.substring(0, 1)}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
+                            {day.substring(0, 1)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
                 )}
 
                 {/* Monthly/Yearly Calendar selection */}
                 {(frequency === 2 || frequency === 3) && (
-                  <View>
-                    <Text className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mb-2 ml-1">
-                      Start Date
-                    </Text>
-                    <DatePicker value={startDate} onChange={setStartDate} />
-                  </View>
+                  <DatePicker value={startDate} onChange={setStartDate} />
                 )}
 
                 {/* Duration and Time selectors row */}
@@ -271,49 +252,40 @@ function AddHabitSheet({
 
                   {/* Goal duration (if Time-based) */}
                   {habitType === 1 ? (
-                    <View className="flex-1">
-                      <Text className="text-muted-foreground text-sm tracking-widest mb-1.5 ml-1">
-                        Duration
-                      </Text>
-                      <View className="flex-row items-center gap-2">
-                        <TextInput
-                          keyboardType="numeric"
-                          placeholder="10"
-                          placeholderTextColor="gray"
-                          className="px-4 py-3 border border-border rounded-2xl text-foreground bg-card text-center w-24 text-base"
-                          value={duration}
-                          maxLength={4}
-                          onChangeText={(text) => {
-                            const val = parseInt(text || "0");
-                            if (val > 1080) {
-                              setDuration("1080");
-                            } else {
-                              setDuration(text.replace(/[^0-9]/g, ""));
-                            }
-                          }}
-                        />
-                        <Text className="text-muted-foreground text-sm">mins</Text>
-                      </View>
+                    <View className="flex-row items-center gap-2">
+                      <TextInput
+                        keyboardType="numeric"
+                        placeholder="10"
+                        placeholderTextColor="gray"
+                        className="px-5 py-3.5 rounded-2xl text-foreground bg-muted/30 text-center w-24 text-base"
+                        value={duration}
+                        onChangeText={(text) => {
+                          const val = parseInt(text || "0");
+                          if (val > 1080) {
+                            setDuration("1080");
+                          } else {
+                            setDuration(text.replace(/[^0-9]/g, ""));
+                          }
+                        }}
+                      />
+                      <Text className="text-muted-foreground text-sm font-semibold">mins</Text>
                     </View>
                   ) : (
                     <View className="flex-1" />
                   )}
 
                   {/* Reminder Time */}
-                  <View className="items-end">
-                    <Text className="text-muted-foreground text-sm tracking-widest mb-1.5 mr-1">
-                      Reminder
-                    </Text>
+                  <View>
                     <TimePicker value={reminderTime} onChange={setReminderTime} />
                   </View>
 
                 </View>
 
               </View>
-            </BottomSheetScrollView>
+            </View>
           ),
           footer: (
-            <View className="px-6 pb-8 bg-background border-t border-border/10 pt-4">
+            <View className="px-6 pb-8 bg-background pt-4">
               <AnimatedPressable
                 onPress={submitHabit}
                 variant="primary"
@@ -329,21 +301,45 @@ function AddHabitSheet({
         }}
       </BottomSheet>
 
-      {/* Nested BottomSheet for Icon Picker */}
-      <BottomSheet open={showIconPicker} onClose={() => setShowIconPicker(false)}>
-        {{
-          content: (
-            <ScrollView
-              className="px-6 py-4 flex-grow-0"
-              contentContainerStyle={{ paddingBottom: 60 }}
-              showsVerticalScrollIndicator={false}
-            >
-              <View className="flex-row justify-between items-center mb-6">
-                <Text className="text-xl font-bold text-foreground">Customize Icon</Text>
-                <Pressable onPress={() => setShowIconPicker(false)} className="p-2 -mr-2">
-                  <Ionicons name="checkmark-circle" size={28} color="#6366f1" />
-                </Pressable>
-              </View>
+      {/* Dynamic Sizing Icon Picker Sheet (Using transparent Modal to stack cleanly) */}
+      <Modal
+        visible={showIconPicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowIconPicker(false)}
+      >
+        <View className="flex-1 justify-end">
+          {/* Backdrop absolute overlay */}
+          <Pressable
+            className="absolute inset-0 bg-black/60"
+            onPress={() => {
+              setShowIconPicker(false);
+              haptic.light();
+            }}
+          />
+
+          {/* Content Card (Content Height with ScrollView for safe overflows) */}
+          <View className="bg-background rounded-t-[32px] px-6 pt-5 pb-12 shadow-2xl border-t border-border/10 max-h-[85%]">
+            {/* Grab handle bar */}
+            <View className="items-center mb-4">
+              <View className="h-1.5 w-12 bg-muted/60 rounded-full" />
+            </View>
+
+            <View className="flex-row justify-between items-center mb-6 px-1">
+              <Text className="text-2xl font-extrabold text-foreground tracking-tight">Customize Icon</Text>
+              <Pressable
+                onPress={() => {
+                  setShowIconPicker(false);
+                  haptic.light();
+                }}
+                style={{ width: 36, height: 36 }}
+                className="bg-muted/30 rounded-full items-center justify-center"
+              >
+                <Ionicons name="checkmark" size={20} color="#6366f1" />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} className="flex-grow-0">
               <IconPicker
                 onSelectIcon={setIcon}
                 onSelectColor={setColor}
@@ -351,9 +347,9 @@ function AddHabitSheet({
                 icon={icon}
               />
             </ScrollView>
-          )
-        }}
-      </BottomSheet>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }

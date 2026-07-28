@@ -15,7 +15,7 @@ const DatePicker = ({value, onChange, className} : DatePickerProps) => {
     <View className={cn(className)}>
       <Pressable
         onPress={() => setShow(true)}
-        className="border border-border rounded-full px-4 py-3"
+        className="bg-muted/30 rounded-2xl px-5 py-3.5"
       >
         <Text className="text-foreground">{value.toLocaleDateString([], { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
       </Pressable>

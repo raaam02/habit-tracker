@@ -6,8 +6,8 @@ import { COLORS, ICONS } from "@/utils/constants";
 import React from "react";
 
 export interface color {
-  name: string, 
-  color: string, 
+  name: string,
+  color: string,
   bgColor: string
 }
 
@@ -21,12 +21,12 @@ interface IconPickerProps {
 export default function IconPicker({ onSelectIcon, onSelectColor, color, icon } : IconPickerProps) {
   return (
     <View className="flex-1 w-full gap-6">
-      
+
       {/* Colors Section */}
       <View>
-        <Text className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
+        {/*<Text className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
           Select Brand Color
-        </Text>
+        </Text>*/}
         <View className="flex-row flex-wrap gap-3 justify-center bg-muted/40 p-3 rounded-3xl border border-border/20">
           {COLORS.map((c, index) => {
             const isSelected = color.color === c.color;
@@ -54,9 +54,9 @@ export default function IconPicker({ onSelectIcon, onSelectColor, color, icon } 
 
       {/* Icons Section */}
       <View className="flex-1">
-        <Text className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
+        {/*<Text className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
           Select Icon symbol
-        </Text>
+        </Text>*/}
         <View className="flex-row flex-wrap gap-2.5 items-center justify-center bg-muted/40 p-4 rounded-3xl border border-border/20">
           {ICONS.map((i) => {
             const isSelected = i === icon;
@@ -75,10 +75,10 @@ export default function IconPicker({ onSelectIcon, onSelectColor, color, icon } 
                   isSelected && 'border-border/30'
                 )}
               >
-                <Ionicons 
-                  name={i as any} 
-                  size={22} 
-                  color={isSelected ? color.color : "#71717a"} 
+                <Ionicons
+                  name={i as any}
+                  size={22}
+                  color={isSelected ? color.color : "#71717a"}
                 />
               </Pressable>
             );

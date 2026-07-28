@@ -4,7 +4,7 @@ import {
   BottomSheetBackdrop,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
-import { useRef, useEffect, useMemo, useCallback } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import { useColorScheme } from "nativewind";
 import { View } from "react-native";
 import themes from "../../app/themes";
@@ -22,12 +22,7 @@ function BottomSheet({
   };
 }) {
   const ref = useRef<BottomSheetModal>(null);
-  // Guard: tracks whether the sheet is currently in a presented state.
-  // Without this, mounting with open=false immediately calls dismiss(),
-  // which sets gorhom's internal status to DISMISSING and corrupts the
-  // state machine — so later present() calls silently fail.
   const isPresentedRef = useRef(false);
-  const snapPoints = useMemo(() => ["90%"], []);
   const { colorScheme } = useColorScheme();
 
   const themeStyle = colorScheme === "dark" ? themes.main.dark : themes.main.light;
@@ -57,8 +52,6 @@ function BottomSheet({
     }
   }, [open]);
 
-  // Called when sheet is dismissed via swipe or backdrop tap.
-  // Must sync isPresentedRef so the guard stays accurate.
   const handleDismiss = useCallback(() => {
     isPresentedRef.current = false;
     onClose();
@@ -67,9 +60,8 @@ function BottomSheet({
   return (
     <BottomSheetModal
       ref={ref}
-      enableDynamicSizing={false}
-      snapPoints={snapPoints}
-      keyboardBehavior="extend"
+      enableDynamicSizing={true} // Enable content-height dynamic sizing
+      keyboardBehavior="interactive"
       onDismiss={handleDismiss}
       backdropComponent={renderBackdrop}
       handleIndicatorStyle={{
@@ -77,11 +69,9 @@ function BottomSheet({
       }}
       backgroundStyle={{
         borderRadius: 24,
-        // borderTopWidth: 1,
-        // borderColor: colorScheme === 'dark' ? "hsl(0 0% 10%)" : "hsl(0 0% 95%)",
-        backgroundColor: colorScheme === 'dark' ? "hsl(0 0% 5%)" : "hsl(0 0% 100%)",
+        backgroundColor: colorScheme === 'dark' ? "hsl(0, 0%, 8%)" : "hsl(0, 0%, 100%)",
       }}
-      footerComponent={({ animatedFooterPosition }) => (
+      footerComponent={children.footer ? ({ animatedFooterPosition }) => (
         <BottomSheetFooter
           animatedFooterPosition={animatedFooterPosition}
           bottomInset={10}
@@ -90,9 +80,9 @@ function BottomSheet({
             {children.footer}
           </View>
         </BottomSheetFooter>
-      )}
+      ) : undefined}
     >
-      <BottomSheetView style={[{ flex: 1 }, themeStyle]}>
+      <BottomSheetView style={[{ paddingBottom: children.footer ? 80 : 20 }, themeStyle]}>
         {children.content}
       </BottomSheetView>
     </BottomSheetModal>

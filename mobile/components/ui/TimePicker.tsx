@@ -31,7 +31,7 @@ const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, className }) =
     <View className={cn(className)}>
       <Pressable
         onPress={() => setShow(true)}
-        className="border border-border rounded-full px-4 py-3"
+        className="bg-muted/30 rounded-2xl px-5 py-3.5"
       >
         <Text className="text-foreground">{formattedTime}</Text>
       </Pressable>

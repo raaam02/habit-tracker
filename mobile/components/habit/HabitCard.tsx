@@ -252,7 +252,7 @@ function HabitCard({ habit, loadHabits, setEditHabit, setOpenHabitSheet, startTi
               // Ticking state: filled color circle with pause icon
               <AnimatedPressable
                 onPress={handleTimer}
-                className="h-6 w-6 rounded-full items-center justify-center shadow-sm"
+                className="h-6 w-6 rounded-full items-center justify-center "
                 hapticType="light"
               >
                 <Ionicons name="pause" size={20} color="white" />
