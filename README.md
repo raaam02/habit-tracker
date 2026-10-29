@@ -19,32 +19,39 @@ Designed around speed and feel: open the app, see today's habits, log one with a
   - Offline-first: state hydrates instantaneously on the first frame with no loading spinners or blank screens.
   - Safe, deterministic JSON export and import for seamless multi-device backups.
 
-### 3. Styling & Theme System
-- **Decision**: Built a dedicated theme module (`constants/theme.ts` & `constants/useAppTheme.ts`) using plain React Native `StyleSheet` without external UI kits or Tailwind overhead.
-- **Rationale**:
-  - Dark-first aesthetic with rich dark tones (`#0B0D10` background, `#14171C` surface, `#1B1F26` elevated), balanced with a clean light theme following system settings.
-  - 10 contrast-checked habit colors with designated foreground text colors.
-  - Consistent 4pt spacing scale, 16px card radii, 24px sheet radii, and standard >=48dp touch targets.
+### 3. Styling, Liquid Glass & Increased Radii
+- **Decision**: Built a dedicated theme module (`constants/theme.ts` & `constants/useAppTheme.ts`) with high-radius Apple squircle design:
+  - Cards: 22dp radius; Sheets: 32dp radius; Chips & Badges: 10–14dp radius.
+  - Native iOS **Liquid Glass** bottom tab bar using `expo-blur` (`BlurView` with `systemMaterial` and translucent backdrop).
+  - Native iOS **formSheet** / `pageSheet` presentation for modals and bottom sheets with grabber handles and 32dp corner radii.
+  - Complete elimination of unnecessary uppercase text transforms in favor of clean, natural sentence-case typography.
 
-### 4. Streak Rules: Never-Miss-Twice
-- **Decision**: Stored raw daily logs (`YYYY-MM-DD` local date strings, never UTC timestamps). Streaks are never persisted in state—they are computed on demand using pure, unit-tested functions (`utils/streaks.ts`).
-- **Rules**:
-  - **Never-Miss-Twice**: One missed scheduled day does **not** break a streak; two consecutive missed scheduled days do.
-  - **At-Risk Indicator**: When yesterday was missed and today is scheduled but not yet completed, a subtle warning indicator alerts the user to preserve their streak today.
-  - **Skipping**: Skipping a habit does not count as a miss and preserves the streak.
-  - **Unscheduled Days**: Days outside a habit's scheduled days are ignored.
+### 4. Android Edge-to-Edge Safe Area
+- **Decision**: Configured explicit safe-area handling via `react-native-safe-area-context` (`useSafeAreaInsets()`) ensuring content never slips behind the Android status bar or navigation bar.
 
-### 5. Gesture-Driven 60fps UX
-- **Decision**: Powered by `react-native-gesture-handler` and `react-native-reanimated`:
-  - **Swipe Right**: Fills card with habit color following the finger, snaps at 75dp threshold with spring and haptic feedback to mark completed.
-  - **Swipe Left**: Reveals quick action drawer (Skip, Edit, Archive).
-  - **Count / Minutes Habits**: Tap on count adds +1; long-press opens numeric input sheet. Minutes habits open quick value presets (`15m`, `30m`, `45m`, `60m`).
-  - **Undo Snackbar**: 5-second undo toast allows instant reversal of completions without annoying confirmation dialogs.
-  - **Accessibility Fallbacks**: Every gesture has clickable button fallbacks for mouse users on web and screen readers.
-  - **First-Run Nudge**: On first launch, a gentle nudge animation demonstrates the swipe-right gesture, then stays quiet.
-  - **Reduced Motion**: Respects `reduceMotion` setting by switching springs to subtle fades.
+### 5. Subtle iOS Swipe & Fluid Transitions
+- **Decision**: Redesigned swipe physics in `components/HabitCard.tsx` following the `apple-design` and `emil-design-eng` guidelines:
+  - Directional horizontal lock with zero vertical stutter or cancellation shake.
+  - Soft rubber-band resistance beyond thresholds and velocity handoff (`event.velocityX`) into critically damped springs (`damping: 24`, `stiffness: 220`, `mass: 1.0`).
+  - Active press feedback scale (`0.985`) on touch down.
+  - Layout transitions (`LinearTransition.springify().damping(22).stiffness(200)`) on cards and lists whenever items grow, shrink, or reorder.
 
-### 6. Responsive Web & PWA
+### 6. Week-Wise Horizontally Scrollable Calendar
+- **Decision**: Removed left/right toggle arrows. Replaced with a horizontally paginated carousel spanning full-width weeks (7 equal-width days per page) with native momentum snapping and completion indicators.
+
+### 7. Drag-to-Reorder Habits
+- **Decision**: Replaced up/down arrow buttons with interactive drag-to-reorder gesture in `mobile/app/(tabs)/habits.tsx`. Dragging lifts the card with scale elevation, animated layout displacement, and haptic ticks.
+
+### 8. Understated Settings & Data Reset
+- **Decision**: Replaced harsh full-red reset button with an understated, quiet row with subtle muted typography, guarded by a destructive native confirmation alert.
+
+### 9. Minimal Mobbin-Inspired Onboarding
+- **Decision**: Implemented a warm 3-step onboarding flow inspired by top Mobbin wellness apps (Everyday, Balance, Atom):
+  - Step 1: User name prompt ("What should we call you?") for dashboard personalization.
+  - Step 2: Primary focus selection (Study & Deep Work, Fitness & Physical Health, Mindful Daily Routine, Balanced Life Mix).
+  - Step 3: Curated starter ritual with customizable templates or clean blank slate.
+
+### 10. Responsive Web & PWA
 - **Decision**: On desktop screens, centers the app in a column of max 520px with the bottom tab bar anchored for natural ergonomics. Includes a PWA manifest (`public/manifest.json`), favicon, and full keyboard navigation.
 
 ---

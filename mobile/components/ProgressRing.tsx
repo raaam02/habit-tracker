@@ -90,7 +90,6 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.tiny,
     fontSize: 10,
     marginTop: 1,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
 });

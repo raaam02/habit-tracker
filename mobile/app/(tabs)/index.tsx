@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { LinearTransition } from 'react-native-reanimated';
 import { useAppTheme } from '../../constants/useAppTheme';
 import { useHabitStore } from '../../store/habitStore';
 import { Habit, HabitLog } from '../../types/habit';
@@ -29,7 +30,7 @@ import { HabitDetailModal } from '../../components/HabitDetailModal';
 import { Snackbar } from '../../components/Snackbar';
 import { Celebration } from '../../components/Celebration';
 import { EmptyState } from '../../components/EmptyState';
-import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../../constants/theme';
+import { SPACING, RADII, TYPOGRAPHY } from '../../constants/theme';
 import { triggerHaptic } from '../../services/haptics';
 
 export default function TodayScreen() {
@@ -40,6 +41,7 @@ export default function TodayScreen() {
 
   const habits = useHabitStore((state) => state.habits);
   const logs = useHabitStore((state) => state.logs);
+  const userName = useHabitStore((state) => state.settings.userName);
   const addHabit = useHabitStore((state) => state.addHabit);
   const editHabit = useHabitStore((state) => state.editHabit);
   const archiveHabit = useHabitStore((state) => state.archiveHabit);
@@ -82,20 +84,9 @@ export default function TodayScreen() {
     }
   }, [completedCount, totalCount, selectedDate, hasCelebratedForDate]);
 
-  const handlePrevDay = () => {
-    triggerHaptic.selection();
-    setSelectedDate(shiftDateString(selectedDate, -1));
-  };
-
-  const handleNextDay = () => {
-    triggerHaptic.selection();
-    setSelectedDate(shiftDateString(selectedDate, 1));
-  };
-
   const handleCompleteHabit = (habit: Habit) => {
     const existingLog = logs.find((l) => l.habitId === habit.id && l.date === selectedDate);
     const isDone = isDayCompleted(habit, existingLog);
-    // If done, uncomplete to 0; if not, complete to target
     const nextVal = isDone ? 0 : habit.target;
     logHabit(habit.id, selectedDate, nextVal, existingLog?.note);
   };
@@ -110,6 +101,13 @@ export default function TodayScreen() {
       addHabit(data);
     }
   };
+
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
@@ -133,65 +131,47 @@ export default function TodayScreen() {
           />
         }
       >
-        {/* Date Header & Jump to Today */}
+        {/* Date & Personalized Header */}
         <View style={styles.headerRow}>
           <View style={styles.dateCol}>
+            {userName ? (
+              <Text style={[styles.greetingText, { color: theme.textMuted }]}>
+                {greeting}, {userName}
+              </Text>
+            ) : null}
             <Text style={[styles.dateTitle, { color: theme.text }]}>
               {formatHeaderDate(selectedDate)}
             </Text>
-            {!isTodayDate(selectedDate) && (
-              <Pressable
-                onPress={() => {
-                  triggerHaptic.light();
-                  jumpToToday();
-                }}
-                style={({ pressed }) => [
-                  styles.todayPill,
-                  { backgroundColor: pressed ? theme.surfaceHighlight : theme.accentMuted },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Jump to today"
-              >
-                <Ionicons name="return-down-back" size={13} color={theme.accent} />
-                <Text style={[styles.todayPillText, { color: theme.accent }]}>Back to Today</Text>
-              </Pressable>
-            )}
           </View>
 
-          <View style={styles.headerArrows}>
+          {!isTodayDate(selectedDate) && (
             <Pressable
-              onPress={handlePrevDay}
+              onPress={() => {
+                triggerHaptic.light();
+                jumpToToday();
+              }}
               style={({ pressed }) => [
-                styles.arrowBtn,
-                { backgroundColor: pressed ? theme.surfaceHighlight : theme.surface },
+                styles.todayPill,
+                { backgroundColor: pressed ? theme.surfaceHighlight : theme.accentMuted },
               ]}
-              hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel="Previous day"
+              accessibilityLabel="Jump to today"
             >
-              <Ionicons name="chevron-back" size={20} color={theme.text} />
+              <Ionicons name="return-down-back" size={13} color={theme.accent} />
+              <Text style={[styles.todayPillText, { color: theme.accent }]}>Today</Text>
             </Pressable>
-            <Pressable
-              onPress={handleNextDay}
-              style={({ pressed }) => [
-                styles.arrowBtn,
-                { backgroundColor: pressed ? theme.surfaceHighlight : theme.surface },
-              ]}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Next day"
-            >
-              <Ionicons name="chevron-forward" size={20} color={theme.text} />
-            </Pressable>
-          </View>
+          )}
         </View>
 
-        {/* Horizontal Week Strip */}
+        {/* Week-wise Horizontally Scrollable Strip */}
         <WeekStrip selectedDate={selectedDate} onSelectDate={setSelectedDate} />
 
         {/* Daily Summary Progress Card */}
         {totalCount > 0 && (
-          <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Animated.View
+            layout={LinearTransition.springify().damping(22).stiffness(200)}
+            style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          >
             <View style={styles.summaryTextWrap}>
               <Text style={[styles.summaryTitle, { color: theme.text }]}>
                 {completedCount === totalCount
@@ -200,17 +180,17 @@ export default function TodayScreen() {
               </Text>
               <Text style={[styles.summarySubtitle, { color: theme.textMuted }]}>
                 {completedCount === totalCount
-                  ? 'Great discipline! Your streaks are locked in.'
-                  : `${totalCount - completedCount} remaining to keep streaks thriving.`}
+                  ? 'Great momentum. Your streaks are protected.'
+                  : `${totalCount - completedCount} remaining today.`}
               </Text>
             </View>
             <ProgressRing completed={completedCount} total={totalCount} />
-          </View>
+          </Animated.View>
         )}
 
-        {/* Section Title */}
+        {/* Section Header */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>Today's Habits</Text>
+          <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>Today's habits</Text>
           <Pressable
             onPress={() => {
               triggerHaptic.light();
@@ -226,52 +206,54 @@ export default function TodayScreen() {
             accessibilityLabel="Add new habit"
           >
             <Ionicons name="add" size={18} color={theme.accent} />
-            <Text style={[styles.addTextBtnLabel, { color: theme.accent }]}>New Habit</Text>
+            <Text style={[styles.addTextBtnLabel, { color: theme.accent }]}>New habit</Text>
           </Pressable>
         </View>
 
-        {/* Habits List */}
+        {/* Habits List with Layout Transition */}
         {scheduledHabits.length === 0 ? (
           <EmptyState
             icon="calendar-outline"
-            title="No Habits Scheduled"
+            title="No habits scheduled"
             description={
               habits.length === 0
-                ? "You haven't added any habits yet. Start small and build momentum!"
-                : 'No habits scheduled for this day of the week.'
+                ? "You haven't added any habits yet. Start with a simple ritual."
+                : 'No habits scheduled for this day.'
             }
-            actionLabel="Add Habit"
+            actionLabel="Add habit"
             onAction={() => {
               setEditingHabit(null);
               setSheetVisible(true);
             }}
           />
         ) : (
-          scheduledHabits.map((habit, index) => {
-            const habitLog = logs.find((l) => l.habitId === habit.id && l.date === selectedDate);
-            const streakStats = computeStreakStats(habit, logs, selectedDate);
+          <Animated.View layout={LinearTransition.springify().damping(22).stiffness(200)}>
+            {scheduledHabits.map((habit, index) => {
+              const habitLog = logs.find((l) => l.habitId === habit.id && l.date === selectedDate);
+              const streakStats = computeStreakStats(habit, logs, selectedDate);
 
-            return (
-              <HabitCard
-                key={habit.id}
-                habit={habit}
-                log={habitLog}
-                streakStats={streakStats}
-                date={selectedDate}
-                isFirstRow={index === 0}
-                onComplete={() => handleCompleteHabit(habit)}
-                onIncrement={() => incrementHabit(habit.id, selectedDate, 1)}
-                onOpenNumberInput={() => setNumberModalHabit(habit)}
-                onSkip={() => skipHabit(habit.id, selectedDate)}
-                onEdit={() => {
-                  setEditingHabit(habit);
-                  setSheetVisible(true);
-                }}
-                onArchive={() => archiveHabit(habit.id)}
-                onOpenDetail={() => setDetailHabit(habit)}
-              />
-            );
-          })
+              return (
+                <HabitCard
+                  key={habit.id}
+                  habit={habit}
+                  log={habitLog}
+                  streakStats={streakStats}
+                  date={selectedDate}
+                  isFirstRow={index === 0}
+                  onComplete={() => handleCompleteHabit(habit)}
+                  onIncrement={() => incrementHabit(habit.id, selectedDate, 1)}
+                  onOpenNumberInput={() => setNumberModalHabit(habit)}
+                  onSkip={() => skipHabit(habit.id, selectedDate)}
+                  onEdit={() => {
+                    setEditingHabit(habit);
+                    setSheetVisible(true);
+                  }}
+                  onArchive={() => archiveHabit(habit.id)}
+                  onOpenDetail={() => setDetailHabit(habit)}
+                />
+              );
+            })}
+          </Animated.View>
         )}
       </ScrollView>
 
@@ -304,7 +286,7 @@ export default function TodayScreen() {
         }}
       />
 
-      {/* Habit Detail Drilldown Modal */}
+      {/* Habit Detail Modal */}
       <HabitDetailModal
         visible={!!detailHabit}
         habit={detailHabit}
@@ -327,17 +309,23 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: SPACING.base,
-    paddingTop: Platform.OS === 'android' ? SPACING.xl : SPACING.sm,
-    paddingBottom: 110, // room for tab bar & snackbar
+    paddingTop: SPACING.sm,
+    paddingBottom: 110,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
+    alignItems: 'flex-end',
+    marginBottom: SPACING.sm,
   },
   dateCol: {
     flex: 1,
+  },
+  greetingText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 13,
+    marginBottom: 2,
+    fontWeight: '500',
   },
   dateTitle: {
     ...TYPOGRAPHY.title1,
@@ -348,28 +336,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: RADII.sm,
-    marginTop: 4,
   },
   todayPillText: {
     ...TYPOGRAPHY.tiny,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-  },
-  headerArrows: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  arrowBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   summaryCard: {
     flexDirection: 'row',
@@ -397,14 +371,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: SPACING.md,
+    marginTop: SPACING.sm,
     marginBottom: SPACING.xs,
   },
   sectionTitle: {
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   addTextBtn: {
     flexDirection: 'row',

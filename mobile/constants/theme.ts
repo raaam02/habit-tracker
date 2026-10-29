@@ -17,6 +17,8 @@ export type ColorTheme = {
   danger: string;
   cardShadow: string;
   overlay: string;
+  glassBackground: string;
+  glassBorder: string;
 };
 
 export const darkTheme: ColorTheme = {
@@ -35,7 +37,9 @@ export const darkTheme: ColorTheme = {
   warning: '#F59E0B',
   danger: '#EF4444',
   cardShadow: 'rgba(0, 0, 0, 0.5)',
-  overlay: 'rgba(0, 0, 0, 0.7)',
+  overlay: 'rgba(0, 0, 0, 0.75)',
+  glassBackground: 'rgba(20, 23, 28, 0.75)',
+  glassBorder: 'rgba(255, 255, 255, 0.08)',
 };
 
 export const lightTheme: ColorTheme = {
@@ -54,7 +58,9 @@ export const lightTheme: ColorTheme = {
   warning: '#D97706',
   danger: '#DC2626',
   cardShadow: 'rgba(0, 0, 0, 0.08)',
-  overlay: 'rgba(15, 23, 42, 0.5)',
+  overlay: 'rgba(15, 23, 42, 0.45)',
+  glassBackground: 'rgba(255, 255, 255, 0.8)',
+  glassBorder: 'rgba(0, 0, 0, 0.06)',
 };
 
 export interface HabitColorItem {
@@ -90,11 +96,13 @@ export const SPACING = {
   huge: 48,
 };
 
+// Increased roundness for modern iOS / Apple feel
 export const RADII = {
-  sm: 8,
-  md: 12,
-  card: 16,
-  sheet: 24,
+  sm: 10,
+  md: 14,
+  card: 22, // Modern Apple squircle-like radius
+  sheet: 32, // Smooth, deep bottom sheet radius
+  pill: 9999,
   full: 9999,
 };
 
@@ -133,8 +141,9 @@ export const TYPOGRAPHY = {
 
 export const TOUCH_TARGET = 48;
 
+// Critically damped Apple-style springs (no jarring jitter, smooth settle)
 export const SPRING_CONFIG = {
-  damping: 18,
-  stiffness: 180,
-  mass: 0.8,
+  damping: 24,
+  stiffness: 220,
+  mass: 1.0,
 };

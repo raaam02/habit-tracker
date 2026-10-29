@@ -57,7 +57,13 @@ export const HabitDetailModal: React.FC<HabitDetailModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent={Platform.OS !== 'ios'}
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'overFullScreen'}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
         <Pressable style={styles.backdrop} onPress={onClose} />
 

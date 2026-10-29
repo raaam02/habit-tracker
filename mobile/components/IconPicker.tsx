@@ -106,8 +106,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     marginBottom: SPACING.sm,
   },
   grid: {

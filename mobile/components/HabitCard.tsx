@@ -11,12 +11,13 @@ import Animated, {
   runOnJS,
   interpolate,
   Extrapolation,
+  LinearTransition,
 } from 'react-native-reanimated';
 import { Habit, HabitLog, StreakStats } from '../types/habit';
 import { useAppTheme } from '../constants/useAppTheme';
 import { useHabitStore } from '../store/habitStore';
 import { triggerHaptic } from '../services/haptics';
-import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../constants/theme';
+import { SPACING, RADII, TYPOGRAPHY, SPRING_CONFIG } from '../constants/theme';
 import { isDayCompleted, isDaySkipped } from '../utils/streaks';
 
 interface HabitCardProps {
@@ -57,21 +58,21 @@ export const HabitCard: React.FC<HabitCardProps> = ({
   const currentValue = log?.value || 0;
 
   const translateX = useSharedValue(0);
-  const rowScale = useSharedValue(1);
+  const pressScale = useSharedValue(1);
 
-  // First-run swipe hint animation
+  // Subtle first-run swipe hint
   useEffect(() => {
     if (isFirstRow && !settings.hasSeenSwipeHint) {
       const timer = setTimeout(() => {
         translateX.value = withSequence(
-          withTiming(45, { duration: 350 }),
-          withTiming(0, { duration: 300 }, (finished) => {
+          withTiming(36, { duration: 300 }),
+          withTiming(0, { duration: 250 }, (finished) => {
             if (finished) {
               runOnJS(updateSettings)({ hasSeenSwipeHint: true });
             }
           })
         );
-      }, 700);
+      }, 600);
       return () => clearTimeout(timer);
     }
   }, [isFirstRow, settings.hasSeenSwipeHint]);
@@ -81,65 +82,77 @@ export const HabitCard: React.FC<HabitCardProps> = ({
     onComplete();
   };
 
-  const fireHapticTick = () => {
-    triggerHaptic.light();
-  };
-
+  // Fluid iOS-style pan gesture: smooth resistance, no jitter, velocity handoff
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-15, 15])
-    .failOffsetY([-15, 15])
+    .activeOffsetX([-10, 10])
     .onUpdate((event) => {
       'worklet';
-      // Resistance dampening beyond thresholds
       if (event.translationX > 0) {
-        translateX.value = Math.min(event.translationX, 140);
+        // Right swipe: soft rubber-band resistance past 70px
+        translateX.value =
+          event.translationX > 70
+            ? 70 + (event.translationX - 70) * 0.3
+            : event.translationX;
       } else {
-        translateX.value = Math.max(event.translationX, -160);
+        // Left swipe: soft rubber-band resistance past -130px
+        translateX.value =
+          event.translationX < -130
+            ? -130 + (event.translationX + 130) * 0.3
+            : event.translationX;
       }
     })
     .onEnd((event) => {
       'worklet';
       const swipeDistance = event.translationX;
+      const velocity = event.velocityX;
 
-      if (swipeDistance > 75) {
-        // Swipe right threshold passed -> complete habit!
+      if (swipeDistance > 60 || velocity > 400) {
+        // Right swipe threshold met -> complete habit with subtle spring
         runOnJS(fireComplete)();
         translateX.value = settings.reduceMotion
           ? withTiming(0, { duration: 150 })
-          : withSpring(0, { damping: 15 });
-      } else if (swipeDistance < -85) {
-        // Keep actions revealed
+          : withSpring(0, { ...SPRING_CONFIG, velocity });
+      } else if (swipeDistance < -75 || velocity < -400) {
+        // Snap open action drawer cleanly
         translateX.value = settings.reduceMotion
-          ? withTiming(-140, { duration: 150 })
-          : withSpring(-140, { damping: 16 });
+          ? withTiming(-136, { duration: 150 })
+          : withSpring(-136, { ...SPRING_CONFIG, velocity });
       } else {
-        // Spring back to 0
+        // Smoothly settle back
         translateX.value = settings.reduceMotion
           ? withTiming(0, { duration: 150 })
-          : withSpring(0, { damping: 15 });
+          : withSpring(0, { ...SPRING_CONFIG, velocity });
       }
     });
 
   const cardAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }, { scale: rowScale.value }],
+    transform: [{ translateX: translateX.value }, { scale: pressScale.value }],
   }));
 
-  // Swipe right background fill (reveals habit color)
+  // Smooth swipe-right color fill
   const rightSwipeStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(translateX.value, [0, 60], [0, 1], Extrapolation.CLAMP);
+    const opacity = interpolate(translateX.value, [0, 50], [0, 1], Extrapolation.CLAMP);
     return {
       opacity,
       backgroundColor: habit.color,
     };
   });
 
-  // Swipe left actions container
+  // Action drawer visibility
   const leftSwipeStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(translateX.value, [-20, -70], [0, 1], Extrapolation.CLAMP);
+    const opacity = interpolate(translateX.value, [-15, -60], [0, 1], Extrapolation.CLAMP);
     return {
       opacity,
     };
   });
+
+  const handlePressIn = () => {
+    pressScale.value = withTiming(0.985, { duration: 100 });
+  };
+
+  const handlePressOut = () => {
+    pressScale.value = withSpring(1, SPRING_CONFIG);
+  };
 
   const handleCardPress = () => {
     if (habit.type === 'count') {
@@ -164,16 +177,16 @@ export const HabitCard: React.FC<HabitCardProps> = ({
   };
 
   const handleResetSwipe = () => {
-    translateX.value = withSpring(0, { damping: 16 });
+    translateX.value = withSpring(0, SPRING_CONFIG);
   };
 
   return (
-    <View style={styles.outerContainer}>
+    <Animated.View layout={LinearTransition.springify().damping(22).stiffness(200)} style={styles.outerContainer}>
       {/* Background layer for Swipe Right (Complete) */}
       <Animated.View style={[styles.completeBackground, rightSwipeStyle]}>
         <View style={styles.completeIconWrap}>
-          <Ionicons name="checkmark-circle" size={28} color="#FFFFFF" />
-          <Text style={styles.completeActionText}>Complete</Text>
+          <Ionicons name="checkmark-circle" size={26} color="#FFFFFF" />
+          <Text style={styles.completeActionText}>Done</Text>
         </View>
       </Animated.View>
 
@@ -185,11 +198,14 @@ export const HabitCard: React.FC<HabitCardProps> = ({
             triggerHaptic.light();
             onSkip();
           }}
-          style={[styles.actionBtn, { backgroundColor: theme.surfaceHighlight }]}
+          style={({ pressed }) => [
+            styles.actionBtn,
+            { backgroundColor: pressed ? theme.surfaceHighlight : theme.elevated },
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Skip habit today"
         >
-          <Ionicons name="play-forward" size={18} color={theme.textMuted} />
+          <Ionicons name="play-forward" size={17} color={theme.textMuted} />
           <Text style={[styles.actionBtnLabel, { color: theme.textMuted }]}>Skip</Text>
         </Pressable>
 
@@ -199,11 +215,14 @@ export const HabitCard: React.FC<HabitCardProps> = ({
             triggerHaptic.light();
             onEdit();
           }}
-          style={[styles.actionBtn, { backgroundColor: theme.surfaceHighlight }]}
+          style={({ pressed }) => [
+            styles.actionBtn,
+            { backgroundColor: pressed ? theme.surfaceHighlight : theme.elevated },
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Edit habit"
         >
-          <Ionicons name="pencil" size={18} color={theme.accent} />
+          <Ionicons name="pencil" size={17} color={theme.accent} />
           <Text style={[styles.actionBtnLabel, { color: theme.accent }]}>Edit</Text>
         </Pressable>
 
@@ -213,29 +232,34 @@ export const HabitCard: React.FC<HabitCardProps> = ({
             triggerHaptic.medium();
             onArchive();
           }}
-          style={[styles.actionBtn, { backgroundColor: theme.surfaceHighlight }]}
+          style={({ pressed }) => [
+            styles.actionBtn,
+            { backgroundColor: pressed ? theme.surfaceHighlight : theme.elevated },
+          ]}
           accessibilityRole="button"
           accessibilityLabel="Archive habit"
         >
-          <Ionicons name="archive" size={18} color={theme.danger} />
+          <Ionicons name="archive" size={17} color={theme.danger} />
           <Text style={[styles.actionBtnLabel, { color: theme.danger }]}>Archive</Text>
         </Pressable>
       </Animated.View>
 
-      {/* Foreground Interactive Card */}
+      {/* Foreground Card */}
       <GestureDetector gesture={panGesture}>
         <Animated.View
           style={[
             styles.card,
             {
               backgroundColor: isDone ? theme.surfaceHighlight : theme.surface,
-              borderColor: isDone ? habit.color : theme.border,
+              borderColor: isDone ? `${habit.color}60` : theme.border,
             },
             cardAnimatedStyle,
           ]}
         >
           <Pressable
             onPress={handleCardPress}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
             onLongPress={handleCardLongPress}
             delayLongPress={280}
             style={styles.cardContent}
@@ -249,7 +273,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({
               style={[
                 styles.iconWrap,
                 {
-                  backgroundColor: isDone ? habit.color : `${habit.color}25`,
+                  backgroundColor: isDone ? habit.color : `${habit.color}18`,
                 },
               ]}
             >
@@ -306,7 +330,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({
                     style={[
                       styles.streakBadge,
                       {
-                        backgroundColor: streakStats.isAtRisk ? '#F59E0B20' : theme.surfaceHighlight,
+                        backgroundColor: streakStats.isAtRisk ? 'rgba(245, 158, 11, 0.12)' : theme.surfaceHighlight,
                         borderColor: streakStats.isAtRisk ? theme.warning : 'transparent',
                       },
                     ]}
@@ -325,7 +349,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({
                       ]}
                     >
                       {streakStats.currentStreak}
-                      {streakStats.isAtRisk ? ' (At Risk)' : ''}
+                      {streakStats.isAtRisk ? ' (at risk)' : ''}
                     </Text>
                   </View>
                 )}
@@ -351,11 +375,11 @@ export const HabitCard: React.FC<HabitCardProps> = ({
               accessibilityLabel={`Mark ${habit.name} complete`}
             >
               {isDone ? (
-                <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={17} color="#FFFFFF" />
               ) : habit.type === 'count' ? (
                 <Text style={[styles.addOneText, { color: theme.textMuted }]}>+1</Text>
               ) : (
-                <View style={[styles.emptyCheckDot, { backgroundColor: 'transparent' }]} />
+                <View style={styles.emptyCheckDot} />
               )}
             </Pressable>
 
@@ -376,7 +400,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({
           </Pressable>
         </Animated.View>
       </GestureDetector>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -411,18 +435,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     paddingRight: SPACING.sm,
-    gap: SPACING.xs,
+    gap: 6,
   },
   actionBtn: {
-    width: 44,
+    width: 42,
     height: 48,
-    borderRadius: RADII.sm,
+    borderRadius: RADII.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionBtnLabel: {
     ...TYPOGRAPHY.tiny,
-    fontSize: 9,
+    fontSize: 10,
     marginTop: 2,
     fontWeight: '600',
   },
@@ -435,12 +459,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.base,
-    minHeight: 68,
+    minHeight: 70,
   },
   iconWrap: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.base,
@@ -460,7 +484,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   skipBadge: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: RADII.sm,
   },
@@ -482,9 +506,9 @@ const styles = StyleSheet.create({
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: RADII.sm,
     borderWidth: 1,
     gap: 3,
   },
@@ -497,7 +521,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    borderWidth: 2,
+    borderWidth: 1.8,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: SPACING.sm,
@@ -511,6 +535,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+    backgroundColor: 'transparent',
   },
   moreButton: {
     paddingHorizontal: 4,

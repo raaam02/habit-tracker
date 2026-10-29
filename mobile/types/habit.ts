@@ -26,6 +26,7 @@ export interface HabitLog {
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 export interface AppSettings {
+  userName?: string;
   theme: ThemePreference;
   weekStartDay: 0 | 1; // 0 = Sunday, 1 = Monday
   remindersEnabled: boolean;

@@ -46,6 +46,7 @@ interface HabitState {
 }
 
 const defaultSettings: AppSettings = {
+  userName: '',
   theme: 'system',
   weekStartDay: 0, // Sunday
   remindersEnabled: true,

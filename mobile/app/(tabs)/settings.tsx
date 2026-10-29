@@ -49,7 +49,7 @@ export default function SettingsScreen() {
     try {
       const ok = await exportHabitData({ habits, logs, settings });
       if (ok) {
-        setMessage('Backup exported successfully!');
+        setMessage('Backup exported successfully');
         setTimeout(() => setMessage(null), 3000);
       }
     } finally {
@@ -66,7 +66,7 @@ export default function SettingsScreen() {
         const ok = importData(result);
         if (ok) {
           triggerHaptic.success();
-          setMessage(`Successfully imported ${result.habits.length} habits!`);
+          setMessage(`Successfully imported ${result.habits.length} habits`);
           setTimeout(() => setMessage(null), 3500);
         } else {
           Alert.alert('Import Failed', 'The selected file is not a valid habit tracker backup.');
@@ -81,17 +81,17 @@ export default function SettingsScreen() {
     triggerHaptic.heavy();
     if (Platform.OS === 'web') {
       const confirmed = window.confirm(
-        'Warning: This will delete ALL your habits and logged history permanently. Proceed?'
+        'Warning: This will delete all your habits and logged history permanently. Proceed?'
       );
       if (confirmed) {
         resetAllData();
-        setMessage('All data was reset.');
+        setMessage('All data was reset');
         setTimeout(() => setMessage(null), 3000);
       }
     } else {
       Alert.alert(
         'Reset All Data',
-        'Are you sure? This will permanently delete all your habits, logs, and streaks. This action cannot be undone.',
+        'Are you sure? This will delete all your habits, logs, and streaks from this device. This cannot be undone.',
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -99,7 +99,7 @@ export default function SettingsScreen() {
             style: 'destructive',
             onPress: () => {
               resetAllData();
-              setMessage('All data was reset.');
+              setMessage('All data was reset');
               setTimeout(() => setMessage(null), 3000);
             },
           },
@@ -131,7 +131,7 @@ export default function SettingsScreen() {
           </View>
         )}
 
-        {/* Section 1: Appearance */}
+        {/* Appearance */}
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text style={[styles.cardTitle, { color: theme.text }]}>Appearance</Text>
 
@@ -171,9 +171,9 @@ export default function SettingsScreen() {
 
           <View style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.border, marginTop: SPACING.base, paddingTop: SPACING.md }]}>
             <View style={styles.rowLabelWrap}>
-              <Text style={[styles.rowTitle, { color: theme.text }]}>Reduce Motion</Text>
+              <Text style={[styles.rowTitle, { color: theme.text }]}>Reduce motion</Text>
               <Text style={[styles.rowSub, { color: theme.textMuted }]}>
-                Replaces spring animations with fast fades
+                Replaces springs with subtle fades
               </Text>
             </View>
             <Switch
@@ -185,11 +185,11 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Section 2: General & Schedule */}
+        {/* Calendar & Reminders */}
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={[styles.cardTitle, { color: theme.text }]}>Calendar & Reminders</Text>
+          <Text style={[styles.cardTitle, { color: theme.text }]}>Schedule & Reminders</Text>
 
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>First Day of Week</Text>
+          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>First day of week</Text>
           <View style={[styles.segment, { backgroundColor: theme.elevated }]}>
             {[
               { val: 0, label: 'Sunday' },
@@ -228,9 +228,9 @@ export default function SettingsScreen() {
 
           <View style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.border, marginTop: SPACING.base, paddingTop: SPACING.md }]}>
             <View style={styles.rowLabelWrap}>
-              <Text style={[styles.rowTitle, { color: theme.text }]}>Daily Reminders</Text>
+              <Text style={[styles.rowTitle, { color: theme.text }]}>Daily reminders</Text>
               <Text style={[styles.rowSub, { color: theme.textMuted }]}>
-                Send scheduled notifications on Android/iOS
+                Scheduled notifications on device
               </Text>
             </View>
             <Switch
@@ -242,11 +242,11 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Section 3: Data Management */}
+        {/* Backup & Restore */}
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={[styles.cardTitle, { color: theme.text }]}>Backup & Restore</Text>
+          <Text style={[styles.cardTitle, { color: theme.text }]}>Backup & Data</Text>
           <Text style={[styles.cardDesc, { color: theme.textMuted }]}>
-            Your data is local-first and never leaves this device. Export JSON backups to transfer between devices.
+            Local-first storage. Export JSON files to easily migrate data across devices.
           </Text>
 
           <View style={styles.buttonsRow}>
@@ -263,7 +263,7 @@ export default function SettingsScreen() {
               accessibilityRole="button"
               accessibilityLabel="Export JSON backup"
             >
-              <Ionicons name="cloud-upload-outline" size={20} color={theme.accent} />
+              <Ionicons name="cloud-upload-outline" size={19} color={theme.accent} />
               <Text style={[styles.actionCardBtnText, { color: theme.text }]}>
                 {exporting ? 'Exporting...' : 'Export JSON'}
               </Text>
@@ -282,37 +282,40 @@ export default function SettingsScreen() {
               accessibilityRole="button"
               accessibilityLabel="Import JSON backup"
             >
-              <Ionicons name="cloud-download-outline" size={20} color={theme.success} />
+              <Ionicons name="cloud-download-outline" size={19} color={theme.success} />
               <Text style={[styles.actionCardBtnText, { color: theme.text }]}>
                 {importing ? 'Importing...' : 'Import JSON'}
               </Text>
             </Pressable>
           </View>
 
-          {/* Reset All Data */}
+          {/* Understated, subtle reset row (not harsh red) */}
           <Pressable
             onPress={confirmReset}
             style={({ pressed }) => [
-              styles.resetBtn,
+              styles.subtleResetRow,
               {
-                backgroundColor: pressed ? `${theme.danger}20` : 'transparent',
-                borderColor: theme.danger,
+                backgroundColor: pressed ? theme.surfaceHighlight : 'transparent',
+                borderColor: theme.border,
               },
             ]}
             accessibilityRole="button"
             accessibilityLabel="Reset all data"
           >
-            <Ionicons name="trash" size={18} color={theme.danger} />
-            <Text style={[styles.resetBtnText, { color: theme.danger }]}>
-              Reset All Habits & Logs
-            </Text>
+            <View style={styles.resetLeft}>
+              <Ionicons name="trash-outline" size={17} color={theme.textSubtle} />
+              <Text style={[styles.subtleResetLabel, { color: theme.textMuted }]}>
+                Reset all habits & logs
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={15} color={theme.textSubtle} />
           </Pressable>
         </View>
 
-        {/* App Info Footer */}
+        {/* Footer */}
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: theme.textSubtle }]}>
-            Habit Tracker • Expo SDK 58 • Local-First • No Login Required
+            Habit Tracker • Expo SDK 58 • Local-First • No Login
           </Text>
         </View>
       </ScrollView>
@@ -329,7 +332,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: SPACING.base,
-    paddingTop: Platform.OS === 'android' ? SPACING.xl : SPACING.sm,
+    paddingTop: SPACING.sm,
     paddingBottom: 90,
   },
   header: {
@@ -378,8 +381,6 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontSize: 12,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
     marginBottom: 6,
   },
   segment: {
@@ -420,7 +421,7 @@ const styles = StyleSheet.create({
   buttonsRow: {
     flexDirection: 'row',
     gap: SPACING.sm,
-    marginBottom: SPACING.base,
+    marginBottom: SPACING.md,
   },
   actionCardBtn: {
     flex: 1,
@@ -438,20 +439,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  resetBtn: {
+  subtleResetRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
+    justifyContent: 'space-between',
     paddingVertical: SPACING.md,
-    borderRadius: RADII.card,
+    paddingHorizontal: SPACING.base,
+    borderRadius: RADII.md,
     borderWidth: 1,
-    minHeight: TOUCH_TARGET,
   },
-  resetBtnText: {
-    ...TYPOGRAPHY.headline,
+  resetLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  subtleResetLabel: {
+    ...TYPOGRAPHY.body,
     fontSize: 14,
-    fontWeight: '700',
   },
   footer: {
     alignItems: 'center',

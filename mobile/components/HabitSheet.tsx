@@ -160,7 +160,13 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent={Platform.OS !== 'ios'}
+      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'overFullScreen'}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}
@@ -508,8 +514,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     marginBottom: SPACING.xs,
   },
   textInput: {
