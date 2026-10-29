@@ -1,161 +1,279 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { saveUserProfile } from "@/db/user.repository";
-import { haptic } from "@/utils/haptic";
-import Animated, { FadeInRight, FadeOutLeft } from "react-native-reanimated";
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  SafeAreaView,
+  Platform,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useAppTheme } from '../constants/useAppTheme';
+import { useHabitStore } from '../store/habitStore';
+import { STARTER_TEMPLATES } from '../constants/templates';
+import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../constants/theme';
+import { triggerHaptic } from '../services/haptics';
 
 export default function OnboardingScreen() {
-  const [step, setStep] = useState(0);
-  const [name, setName] = useState("");
-  const [error, setError] = useState("");
+  const { theme } = useAppTheme();
+  const router = useRouter();
+  const preloadTemplates = useHabitStore((state) => state.preloadTemplates);
+  const updateSettings = useHabitStore((state) => state.updateSettings);
 
-  const handleNext = () => {
-    haptic.light();
-    if (step < 2) {
-      setStep(step + 1);
+  // By default, select all starter templates
+  const [selectedIds, setSelectedIds] = useState<string[]>(
+    STARTER_TEMPLATES.map((t) => t.templateId)
+  );
+
+  const toggleTemplate = (id: string) => {
+    triggerHaptic.selection();
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((item) => item !== id));
     } else {
-      if (!name.trim()) {
-        setError("Please enter your name");
-        haptic.notificationError();
-        return;
-      }
-      // Save profile and redirect to home
-      saveUserProfile(name.trim());
-      haptic.notificationSuccess();
-      router.replace("/");
+      setSelectedIds([...selectedIds, id]);
     }
   };
 
-  const handleBack = () => {
-    if (step > 0) {
-      haptic.light();
-      setStep(step - 1);
-    }
+  const handleStartWithSelected = () => {
+    triggerHaptic.success();
+    preloadTemplates(selectedIds);
+    router.replace('/(tabs)');
+  };
+
+  const handleStartEmpty = () => {
+    triggerHaptic.light();
+    updateSettings({ hasCompletedOnboarding: true });
+    router.replace('/(tabs)');
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
-      >
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-          <View className="flex-1 justify-between p-8">
-            
-            {/* Top Navigation */}
-            <View className="flex-row justify-between items-center h-10">
-              {step > 0 ? (
-                <Pressable
-                  onPress={handleBack}
-                  style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-                  className="p-2 -ml-2"
-                >
-                  <Ionicons name="arrow-back" size={24} color="hsl(var(--foreground))" />
-                </Pressable>
-              ) : (
-                <View />
-              )}
-              
-              {/* Progress Dots */}
-              <View className="flex-row gap-2">
-                {[0, 1, 2].map((s) => (
-                  <View
-                    key={s}
-                    className={`h-2 w-2 rounded-full ${
-                      s === step ? "bg-primary w-4" : "bg-muted"
-                    }`}
-                  />
-                ))}
-              </View>
-            </View>
-
-            {/* Step Contents */}
-            <View className="flex-1 justify-center my-8">
-              {step === 0 && (
-                <Animated.View
-                  entering={FadeInRight}
-                  exiting={FadeOutLeft}
-                  className="items-center"
-                >
-                  <View className="bg-primary/10 p-6 rounded-full mb-6">
-                    <Ionicons name="sparkles" size={64} color="hsl(var(--primary))" />
-                  </View>
-                  <Text className="text-3xl font-extrabold text-foreground text-center mb-4">
-                    Transform Your Life
-                  </Text>
-                  <Text className="text-muted-foreground text-center text-base leading-6 px-4">
-                    Track daily goals, maintain consistency streaks, and build productive habits that compound over time.
-                  </Text>
-                </Animated.View>
-              )}
-
-              {step === 1 && (
-                <Animated.View
-                  entering={FadeInRight}
-                  exiting={FadeOutLeft}
-                  className="items-center"
-                >
-                  <View className="bg-emerald-500/10 p-6 rounded-full mb-6">
-                    <Ionicons name="phone-portrait-outline" size={64} color="#10B981" />
-                  </View>
-                  <Text className="text-3xl font-extrabold text-foreground text-center mb-4">
-                    Tactile Experience
-                  </Text>
-                  <Text className="text-muted-foreground text-center text-base leading-6 px-4">
-                    Slide left-to-right to mark complete instantly. Slide right-to-left to skip with a customized reason notes. Responsive physics are at your fingertips.
-                  </Text>
-                </Animated.View>
-              )}
-
-              {step === 2 && (
-                <Animated.View
-                  entering={FadeInRight}
-                  exiting={FadeOutLeft}
-                  className="w-full px-4"
-                >
-                  <Text className="text-3xl font-extrabold text-foreground text-center mb-4">
-                    What should we call you?
-                  </Text>
-                  <Text className="text-muted-foreground text-center text-sm mb-8">
-                    Let's personalize your daily dashboard.
-                  </Text>
-                  
-                  <TextInput
-                    autoFocus
-                    placeholder="Enter your name"
-                    className="border border-border rounded-2xl px-5 py-4 text-lg text-foreground placeholder:text-muted-foreground bg-card"
-                    value={name}
-                    onChangeText={(text) => {
-                      setName(text);
-                      if (error) setError("");
-                    }}
-                  />
-                  {error && (
-                    <Text className="text-destructive text-sm mt-2 ml-1">{error}</Text>
-                  )}
-                </Animated.View>
-              )}
-            </View>
-
-            {/* Bottom Actions */}
-            <View>
-              <Pressable
-                onPress={handleNext}
-                style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
-                className="bg-primary py-4 rounded-2xl items-center justify-center shadow-lg shadow-primary/20"
-              >
-                <Text className="text-primary-foreground font-bold text-lg">
-                  {step === 2 ? "Get Started" : "Continue"}
-                </Text>
-              </Pressable>
-            </View>
-
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={[styles.badge, { backgroundColor: theme.accentMuted }]}>
+            <Ionicons name="sparkles" size={14} color={theme.accent} />
+            <Text style={[styles.badgeText, { color: theme.accent }]}>Local-First Habit Tracker</Text>
           </View>
+          <Text style={[styles.title, { color: theme.text }]}>Build Daily Habits</Text>
+          <Text style={[styles.subtitle, { color: theme.textMuted }]}>
+            Pick from curated starter habits or begin with a clean slate. Every template is fully customizable.
+          </Text>
+        </View>
+
+        {/* Templates List */}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {STARTER_TEMPLATES.map((tpl) => {
+            const isSelected = selectedIds.includes(tpl.templateId);
+            return (
+              <Pressable
+                key={tpl.templateId}
+                onPress={() => toggleTemplate(tpl.templateId)}
+                style={({ pressed }) => [
+                  styles.templateCard,
+                  {
+                    backgroundColor: isSelected ? theme.elevated : theme.surface,
+                    borderColor: isSelected ? tpl.color : theme.border,
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: isSelected }}
+                accessibilityLabel={`${tpl.name}`}
+              >
+                <View
+                  style={[
+                    styles.iconCircle,
+                    { backgroundColor: `${tpl.color}25` },
+                  ]}
+                >
+                  <Ionicons name={tpl.icon as any} size={22} color={tpl.color} />
+                </View>
+
+                <View style={styles.cardContent}>
+                  <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
+                    {tpl.name}
+                  </Text>
+                  <Text style={[styles.cardMeta, { color: theme.textMuted }]}>
+                    {tpl.type === 'check'
+                      ? 'Daily Check'
+                      : tpl.type === 'count'
+                      ? `${tpl.target} reps`
+                      : `${tpl.target} mins`}{' '}
+                    •{' '}
+                    {tpl.scheduledDays.length === 7
+                      ? 'Every day'
+                      : tpl.scheduledDays.length === 1 && tpl.scheduledDays[0] === 0
+                      ? 'Sundays only'
+                      : `${tpl.scheduledDays.length} days/week`}
+                  </Text>
+                </View>
+
+                {/* Checkbox circle */}
+                <View
+                  style={[
+                    styles.checkCircle,
+                    {
+                      backgroundColor: isSelected ? tpl.color : 'transparent',
+                      borderColor: isSelected ? tpl.color : theme.borderLight,
+                    },
+                  ]}
+                >
+                  {isSelected && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+                </View>
+              </Pressable>
+            );
+          })}
         </ScrollView>
-      </KeyboardAvoidingView>
+
+        {/* Bottom Actions */}
+        <View style={[styles.bottomBar, { backgroundColor: theme.background }]}>
+          <Pressable
+            onPress={handleStartWithSelected}
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              {
+                backgroundColor: pressed ? theme.accentMuted : theme.accent,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Continue with selected habits"
+          >
+            <Text style={styles.primaryBtnText}>
+              {selectedIds.length > 0
+                ? `Get Started (${selectedIds.length} habits)`
+                : 'Get Started'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleStartEmpty}
+            style={styles.secondaryBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Start empty with no habits"
+          >
+            <Text style={[styles.secondaryBtnText, { color: theme.textMuted }]}>
+              Start with an empty tracker
+            </Text>
+          </Pressable>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: SPACING.base,
+    paddingTop: Platform.OS === 'android' ? SPACING.xl : SPACING.base,
+  },
+  header: {
+    marginBottom: SPACING.md,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADII.sm,
+    marginBottom: SPACING.sm,
+  },
+  badgeText: {
+    ...TYPOGRAPHY.tiny,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  title: {
+    ...TYPOGRAPHY.title1,
+    fontSize: 32,
+    marginBottom: SPACING.xs,
+  },
+  subtitle: {
+    ...TYPOGRAPHY.body,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingVertical: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  templateCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.base,
+    borderRadius: RADII.card,
+    borderWidth: 1.5,
+    minHeight: 70,
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  cardContent: {
+    flex: 1,
+  },
+  cardTitle: {
+    ...TYPOGRAPHY.headline,
+    fontSize: 16,
+  },
+  cardMeta: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  checkCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: SPACING.sm,
+  },
+  bottomBar: {
+    paddingVertical: SPACING.base,
+    gap: SPACING.xs,
+  },
+  primaryBtn: {
+    paddingVertical: SPACING.base,
+    borderRadius: RADII.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: TOUCH_TARGET,
+  },
+  primaryBtnText: {
+    ...TYPOGRAPHY.headline,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  secondaryBtn: {
+    paddingVertical: SPACING.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 36,
+  },
+  secondaryBtnText: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '600',
+  },
+});

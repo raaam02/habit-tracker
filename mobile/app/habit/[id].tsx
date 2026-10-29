@@ -1,363 +1,262 @@
-import React, { useEffect, useRef, useState } from "react";
-import { View, Text, ScrollView, Pressable, StatusBar } from "react-native";
-import { Stack, useRouter, useLocalSearchParams, useIsFocused } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useSharedValue, withTiming } from "react-native-reanimated";
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  SafeAreaView,
+  Platform,
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../../constants/useAppTheme';
+import { useHabitStore } from '../../store/habitStore';
+import { computeStreakStats } from '../../utils/streaks';
+import { YearlyHeatmap } from '../../components/YearlyHeatmap';
+import { HabitSheet } from '../../components/HabitSheet';
+import { getTodayDateString } from '../../utils/date';
+import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../../constants/theme';
+import { triggerHaptic } from '../../services/haptics';
 
-import { calculateCurrentStreak, calculateBestStreak, completionRate } from "@/services/streak.service";
-import { updateHabitProgress } from "@/services/habit-log.service";
-import { haptic } from "@/utils/haptic";
-import { getHabitById } from "@/db/habit.repository";
-import { getLogsForHabit } from "@/db/habit-log.repository";
-import Popover from "@/components/ui/Popover";
-import ConfirmModal from "@/components/ui/ConfirmModal";
-import { deleteHabit } from "@/services/habit.service";
-import AddHabitSheet from "@/components/habit/AddHabitSheet";
-import { HabitInput, HabitLog } from "@/types/habit";
-import AnimatedPressable from "@/components/ui/AnimatedPressable";
-import ProgressRingTimer from "@/components/ui/ProgressRingTimer";
-import StatsCard from "@/components/habit/StatsCard";
-import SwipeCalendar from "@/components/swipe-calendar";
-
-export default function HabitDetailScreen() {
+export default function HabitDetailRoute() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { id } = useLocalSearchParams();
-  const isFocused = useIsFocused();
+  const { theme } = useAppTheme();
 
-  const menuRef = useRef<View>(null);
-  const [habit, setHabit] = useState<HabitInput | null>(null);
-  const [logs, setLogs] = useState<HabitLog[]>([]);
-  const [bestStreak, setBestStreak] = useState(0);
-  const [totalCompletions, setTotalCompletions] = useState(0);
-  const [rate, setRate] = useState(0);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [openHabitSheet, setOpenHabitSheet] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const habits = useHabitStore((state) => state.habits);
+  const logs = useHabitStore((state) => state.logs);
+  const editHabit = useHabitStore((state) => state.editHabit);
 
-  const streakProgress = useSharedValue(0);
+  const [sheetVisible, setSheetVisible] = useState(false);
 
-  const isHabitCompleted = (log?: HabitLog) => {
-    if (!log) return false;
-    return log.status === 'done' || (log.completedTime != null && log.targetTime != null && log.completedTime >= log.targetTime);
-  };
-
-  const habitId = id.toString();
-  const streak = calculateCurrentStreak(habitId);
-
-  const handleCheckIn = () => {
-    haptic.notificationSuccess();
-    const targetSeconds = (habit?.duration || 0) * 60;
-    updateHabitProgress(habitId, targetSeconds || 1);
-    loadHabit();
-  };
-
-  const loadHabit = () => {
-    const habitData = getHabitById(habitId);
-    setHabit(habitData);
-    
-    const habitLogs = getLogsForHabit(habitId) as HabitLog[];
-    setLogs(habitLogs);
-    setBestStreak(calculateBestStreak(habitId));
-
-    const doneCount = habitLogs.filter(isHabitCompleted).length;
-    
-    setTotalCompletions(doneCount);
-    setRate(completionRate(habitId));
-  }
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const todayStr = new Date().toISOString().split("T")[0];
-    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', weekday: 'short' };
-    if (dateStr === todayStr) return `Today, ${date.toLocaleString('default', { month: 'short', day: 'numeric' })}`;
-    return date.toLocaleString('default', options);
-  };
-
-  useEffect(() => {
-    if (isFocused) {
-      loadHabit();
-    }
-  }, [habitId, isFocused]);
-
-  const getWeekProgress = () => {
-    const today = new Date();
-    const weekDates = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      const day = today.getDay();
-      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-      return new Date(d.setDate(diff + i)).toISOString().split("T")[0];
-    });
-
-    let completed = 0;
-    weekDates.forEach(date => {
-      const log = logs.find(l => l.date === date);
-      if (isHabitCompleted(log)) completed++;
-    });
-
-    return completed / 7;
-  };
-
-  useEffect(() => {
-    if (logs.length > 0) {
-      streakProgress.value = withTiming(getWeekProgress(), { duration: 800 });
-    } else {
-      streakProgress.value = withTiming(0, { duration: 800 });
-    }
-  }, [logs, habit]);
-
-  const handleDelete = () => {
-    setMenuOpen(false)
-    setConfirmDelete(true)
-    haptic.light()
-  }
-
-  const handleEdit = () => {
-    setMenuOpen(false)
-    setOpenHabitSheet(true)
-    haptic.light()
-  }
-
-  const MenuItems = [
-    { id: 1, title: "Edit", icon: "pencil", color: "#ffffff", action: () => handleEdit()},
-    { id: 2, title: "Delete", icon: "trash", color: "#ef4444", action: () => handleDelete()},
-  ];
+  const habit = habits.find((h) => h.id === id);
 
   if (!habit) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <Text className="text-foreground">Loading details...</Text>
-      </View>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+        <View style={styles.errorContainer}>
+          <Text style={[styles.errorTitle, { color: theme.text }]}>Habit Not Found</Text>
+          <Pressable
+            onPress={() => router.back()}
+            style={[styles.backBtn, { backgroundColor: theme.accent }]}
+          >
+            <Text style={styles.backBtnText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  // Check if completed today
-  const todayStr = new Date().toISOString().split("T")[0];
-  const todayLog = logs.find(l => l.date === todayStr);
-  const isDoneToday = isHabitCompleted(todayLog);
+  const today = getTodayDateString();
+  const stats = computeStreakStats(habit, logs, today);
 
   return (
-    <>
-      <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar backgroundColor="#000000" barStyle="light-content" />
-      <View style={{ backgroundColor: "#080808" }} className="flex-1">
-        
-        {/* Swipe Calendar View at the top */}
-        <SwipeCalendar
-          accentColor={habit.color}
-          backgroundColor="#080808"
-          markedDates={logs.map(l => l.date)}
-          selectedDate={todayStr}
-          todayLabel="Today"
-          onDayPress={(iso) => console.log("Day selected:", iso)}
-          weekLabelConfig={{ format: "narrow" }}
-        />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => {
+            triggerHaptic.light();
+            router.back();
+          }}
+          style={({ pressed }) => [
+            styles.iconButton,
+            { backgroundColor: pressed ? theme.surfaceHighlight : theme.surface },
+          ]}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <Ionicons name="arrow-back" size={20} color={theme.text} />
+        </Pressable>
 
-        <SafeAreaView className="flex-1 bg-background rounded-t-[32px] overflow-hidden">
-          
-          {/* HEADER NAV */}
-          <View className="px-4 flex-row justify-between items-center py-4 border-b border-border/10">
-            <Pressable
-              onPress={() => router.back()}
-              style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-              className="h-10 w-10 rounded-full items-center justify-center bg-muted/20"
-            >
-              <Ionicons name="arrow-back" size={22} color="#fff" />
-            </Pressable>
+        <Pressable
+          onPress={() => {
+            triggerHaptic.light();
+            setSheetVisible(true);
+          }}
+          style={({ pressed }) => [
+            styles.iconButton,
+            { backgroundColor: pressed ? theme.surfaceHighlight : theme.surface },
+          ]}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Edit habit"
+        >
+          <Ionicons name="pencil" size={18} color={theme.accent} />
+        </Pressable>
+      </View>
 
-            <View className="flex flex-1 flex-row gap-3 items-center px-4">
-              <View
-                style={{ backgroundColor: habit.bgColor }}
-                className="h-10 w-10 rounded-2xl items-center justify-center border border-border/10"
-              >
-                <Ionicons name={habit.icon as any} size={20} color={habit.color} />
-              </View>
-              <Text className="text-lg text-foreground font-extrabold tracking-tight">
-                {habit.name}
-              </Text>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Habit Card Top */}
+        <View style={[styles.cardTop, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={[styles.iconCircle, { backgroundColor: `${habit.color}25` }]}>
+            <Ionicons name={habit.icon as any} size={28} color={habit.color} />
+          </View>
+          <Text style={[styles.name, { color: theme.text }]}>{habit.name}</Text>
+          <Text style={[styles.schedule, { color: theme.textMuted }]}>
+            {habit.type === 'check'
+              ? 'Daily check-off'
+              : `${habit.target} ${habit.type === 'minutes' ? 'mins' : 'reps'} target`}
+          </Text>
+        </View>
+
+        {/* 4 Stats Cards */}
+        <View style={styles.statsGrid}>
+          <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.statIconRow}>
+              <Ionicons
+                name="flame"
+                size={20}
+                color={stats.isAtRisk ? theme.warning : '#F97316'}
+              />
+              {stats.isAtRisk && (
+                <Text style={[styles.riskTag, { color: theme.warning }]}>At Risk</Text>
+              )}
             </View>
-
-            <Pressable 
-              ref={menuRef as any} 
-              style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-              onPress={() => setMenuOpen(true)} 
-              className="h-10 w-10 rounded-full items-center justify-center bg-muted/20"
-            >
-              <Ionicons name="ellipsis-vertical" size={20} color="#fff" />
-            </Pressable>
+            <Text style={[styles.statValue, { color: theme.text }]}>{stats.currentStreak}</Text>
+            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Current Streak</Text>
           </View>
 
-          {/* Popover settings Menu */}
-          {menuOpen && (
-            <Popover
-              visible={menuOpen}
-              anchorRef={menuRef}
-              onClose={() => setMenuOpen(false)}
-            >
-              <View className="flex bg-popover border border-border p-1.5 rounded-2xl shadow-xl min-w-36">
-                {MenuItems.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    onPress={item.action}
-                    style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-                    className="flex-row items-center p-2.5 gap-2.5 rounded-lg"
-                  >
-                    <Ionicons name={item.icon as any} size={18} color={item.color} />
-                    <Text className="text-foreground font-semibold text-sm" style={{ color: item.color }}>{item.title}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </Popover>
-          )}
+          <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Ionicons name="trophy" size={20} color="#FBBF24" />
+            <Text style={[styles.statValue, { color: theme.text }]}>{stats.bestStreak}</Text>
+            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Best Streak</Text>
+          </View>
 
-          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-            
-            {/* STREAK RING */}
-            <View className="items-center px-6 mb-8 pt-8">
-              <ProgressRingTimer
-                size={220}
-                strokeWidth={10}
-                color={habit.color}
-                progress={streakProgress}
-              >
-                <View className="items-center justify-center bg-card h-48 w-48 rounded-full border border-border/20 shadow-sm">
-                  <Ionicons name="flame" size={28} color="#6366f1" />
-                  <Text className="text-5xl font-extrabold text-foreground tracking-tighter mt-1">
-                    {streak}
-                  </Text>
-                  <Text className="text-muted-foreground font-bold text-[9px] tracking-widest uppercase mt-1">
-                    Day Streak
-                  </Text>
-                </View>
-              </ProgressRingTimer>
-            </View>
+          <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Ionicons name="trending-up" size={20} color={theme.accent} />
+            <Text style={[styles.statValue, { color: theme.text }]}>{stats.completionRate7d}%</Text>
+            <Text style={[styles.statLabel, { color: theme.textMuted }]}>7-Day Rate</Text>
+          </View>
 
-            {/* ADAPTIVE CTA */}
-            <View className="px-6 mb-8">
-              {isDoneToday ? (
-                <View className="bg-emerald-500/10 border border-emerald-500/20 py-4 rounded-2xl flex-row items-center justify-center gap-2">
-                  <Ionicons name="checkmark-circle" size={20} color="#10b981" />
-                  <Text className="text-emerald-500 font-bold text-base">Completed Today</Text>
-                </View>
-              ) : (
-                <AnimatedPressable
-                  onPress={handleCheckIn}
-                  variant="primary"
-                  className="rounded-2xl py-4 flex-row items-center justify-center gap-2 shadow-lg shadow-primary/10"
-                  hapticType="light"
-                >
-                  <Ionicons name="checkmark" size={20} color="white" />
-                  <Text className="text-primary-foreground font-bold text-base">
-                    Mark Completed
-                  </Text>
-                </AnimatedPressable>
-              )}
-            </View>
+          <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Ionicons name="calendar-outline" size={20} color={theme.success} />
+            <Text style={[styles.statValue, { color: theme.text }]}>{stats.completionRate30d}%</Text>
+            <Text style={[styles.statLabel, { color: theme.textMuted }]}>30-Day Rate</Text>
+          </View>
+        </View>
 
-            {/* SUMMARY STATS */}
-            <View className="px-6 mb-8">
-              <View className="flex-row justify-between gap-4">
-                <StatsCard label="Best Streak" value={bestStreak} />
-                <StatsCard label="Total Done" value={totalCompletions} />
-                <StatsCard label="Comp. Rate" value={rate} suffix="%" variant="primary" />
-              </View>
-            </View>
+        {/* Heatmap */}
+        <YearlyHeatmap habits={[habit]} logs={logs} specificHabitId={habit.id} />
+      </ScrollView>
 
-            {/* TIMELINE LOGS */}
-            <View className="bg-card rounded-t-[32px] px-6 pt-8 pb-20 border-t border-border/10">
-              <Text className="text-base font-bold text-foreground mb-6 tracking-tight">
-                Activity Logs
-              </Text>
-
-              {logs.length > 0 ? (
-                <View className="border-l border-border/40 ml-3.5 pl-6 gap-6">
-                  {logs.slice(0, 10).map((item) => {
-                    const isCompleted = isHabitCompleted(item);
-                    const isSkipped = item.status === "missed";
-                    
-                    return (
-                      <View key={item.id} className="relative">
-                        
-                        {/* Timeline Bullet node */}
-                        <View
-                          style={{
-                            borderColor: isCompleted ? "#10b981" : isSkipped ? "#f59e0b" : "#71717a",
-                            backgroundColor: "#080808"
-                          }}
-                          className="absolute -left-[32px] top-1.5 h-4 w-4 rounded-full border-2 items-center justify-center"
-                        >
-                          <View 
-                            style={{ backgroundColor: isCompleted ? "#10b981" : isSkipped ? "#f59e0b" : "#71717a" }}
-                            className="h-1.5 w-1.5 rounded-full" 
-                          />
-                        </View>
-
-                        {/* Log Item Content Card */}
-                        <View className="bg-background/40 border border-border/20 p-4 rounded-2xl shadow-sm">
-                          <View className="flex-row justify-between items-center mb-1">
-                            <Text className="font-bold text-foreground text-sm">
-                              {formatDate(item.date)}
-                            </Text>
-
-                            <View
-                              className={`px-2 py-0.5 rounded-md border ${
-                                isCompleted
-                                  ? "bg-emerald-500/10 border-emerald-500/20"
-                                  : "bg-amber-500/10 border-amber-500/20"
-                              }`}
-                            >
-                              <Text
-                                className={`text-[9px] font-bold uppercase ${
-                                  isCompleted ? "text-emerald-500" : "text-amber-500"
-                                }`}
-                              >
-                                {isCompleted ? "done" : "skipped"}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {item.reason ? (
-                            <Text className="text-muted-foreground text-xs mt-2 leading-relaxed font-medium">
-                              "{item.reason}"
-                            </Text>
-                          ) : null}
-
-                          {isCompleted && item.completedTime ? (
-                            <Text className="text-muted-foreground/60 text-[10px] mt-1 flex-row items-center">
-                              ⏱️ Completed in {Math.floor(item.completedTime / 60)}m {item.completedTime % 60}s
-                            </Text>
-                          ) : null}
-                        </View>
-
-                      </View>
-                    );
-                  })}
-                </View>
-              ) : (
-                <View className="items-center justify-center py-10 bg-background/20 rounded-2xl border border-border/10">
-                  <Ionicons name="layers-outline" size={28} color="gray" className="opacity-40 mb-2" />
-                  <Text className="text-muted-foreground text-xs font-semibold">No activity logs recorded yet</Text>
-                </View>
-              )}
-            </View>
-
-          </ScrollView>
-
-          <ConfirmModal
-            visible={confirmDelete}
-            description="Delete this habit?"
-            confirmText="Delete"
-            variant="destructive"
-            onConfirm={() => {
-              deleteHabit(habitId)
-              router.back()
-            }}
-            onCancel={() => setConfirmDelete(false)}
-          />
-
-          <AddHabitSheet habit={habit} loadHabits={loadHabit} open={openHabitSheet} onClose={() => setOpenHabitSheet(false)} />
-        </SafeAreaView>
-      </View>
-    </>
+      {/* Edit Sheet */}
+      <HabitSheet
+        visible={sheetVisible}
+        habitToEdit={habit}
+        onClose={() => setSheetVisible(false)}
+        onSave={(data) => {
+          editHabit(habit.id, data);
+        }}
+      />
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.base,
+    paddingTop: Platform.OS === 'android' ? SPACING.xl : SPACING.sm,
+    paddingBottom: SPACING.xs,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: SPACING.base,
+    paddingBottom: 40,
+  },
+  cardTop: {
+    alignItems: 'center',
+    padding: SPACING.xl,
+    borderRadius: RADII.card,
+    borderWidth: 1,
+    marginVertical: SPACING.md,
+  },
+  iconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  name: {
+    ...TYPOGRAPHY.title2,
+    fontSize: 22,
+    textAlign: 'center',
+  },
+  schedule: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 13,
+    marginTop: 4,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  statBox: {
+    flex: 1,
+    minWidth: '46%',
+    padding: SPACING.md,
+    borderRadius: RADII.card,
+    borderWidth: 1,
+  },
+  statIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  riskTag: {
+    ...TYPOGRAPHY.tiny,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  statValue: {
+    ...TYPOGRAPHY.title1,
+    fontSize: 26,
+    marginVertical: 4,
+  },
+  statLabel: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 12,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.xl,
+  },
+  errorTitle: {
+    ...TYPOGRAPHY.title2,
+    marginBottom: SPACING.base,
+  },
+  backBtn: {
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderRadius: RADII.card,
+  },
+  backBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+});

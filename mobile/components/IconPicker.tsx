@@ -1,91 +1,126 @@
-import { View, Pressable, Text } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { cn } from "@/utils/cn";
-import { haptic } from "@/utils/haptic";
-import { COLORS, ICONS } from "@/utils/constants";
-import React from "react";
+import React from 'react';
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../constants/useAppTheme';
+import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../constants/theme';
+import { triggerHaptic } from '../services/haptics';
 
-export interface color {
-  name: string,
-  color: string,
-  bgColor: string
-}
+export const CURATED_ICONS = [
+  // Health & Fitness
+  'barbell',
+  'walk',
+  'bicycle',
+  'fitness',
+  'water',
+  'heart',
+  'bed',
+  'moon',
+  // Productivity & Tech
+  'code-slash',
+  'git-commit',
+  'book',
+  'laptop',
+  'pencil',
+  'briefcase',
+  'school',
+  'time',
+  // Mind & Lifestyle
+  'sunny',
+  'happy',
+  'cafe',
+  'leaf',
+  'sparkles',
+  'musical-notes',
+  'camera',
+  'calendar',
+  // Finance & Home
+  'cash',
+  'wallet',
+  'home',
+  'cart',
+  'nutrition',
+  'restaurant',
+];
 
 interface IconPickerProps {
-  color: color;
-  icon: string;
-  onSelectIcon: (icon: string) => void;
-  onSelectColor: (color: color) => void;
+  selectedIcon: string;
+  onSelectIcon: (iconName: string) => void;
+  accentColor?: string;
 }
 
-export default function IconPicker({ onSelectIcon, onSelectColor, color, icon } : IconPickerProps) {
+export const IconPicker: React.FC<IconPickerProps> = ({
+  selectedIcon,
+  onSelectIcon,
+  accentColor,
+}) => {
+  const { theme } = useAppTheme();
+  const activeColor = accentColor || theme.accent;
+
   return (
-    <View className="flex-1 w-full gap-6">
-
-      {/* Colors Section */}
-      <View>
-        {/*<Text className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
-          Select Brand Color
-        </Text>*/}
-        <View className="flex-row flex-wrap gap-3 justify-center bg-muted/40 p-3 rounded-3xl border border-border/20">
-          {COLORS.map((c, index) => {
-            const isSelected = color.color === c.color;
-            return (
-              <Pressable
-                key={index}
-                onPress={() => {
-                  onSelectColor(c);
-                  haptic.light();
-                }}
-                style={{ backgroundColor: c.color }}
-                className={cn(
-                  'w-10 h-10 rounded-full items-center justify-center border-2 border-transparent shadow-sm',
-                  isSelected && 'border-white'
-                )}
-              >
-                {isSelected && (
-                  <Ionicons name="checkmark" size={20} color="white" />
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
+    <View style={styles.container}>
+      <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
+        Choose Icon
+      </Text>
+      <View style={styles.grid}>
+        {CURATED_ICONS.map((iconName) => {
+          const isSelected = selectedIcon === iconName;
+          return (
+            <Pressable
+              key={iconName}
+              onPress={() => {
+                triggerHaptic.selection();
+                onSelectIcon(iconName);
+              }}
+              style={({ pressed }) => [
+                styles.iconButton,
+                {
+                  backgroundColor: isSelected
+                    ? `${activeColor}20`
+                    : pressed
+                    ? theme.surfaceHighlight
+                    : theme.surface,
+                  borderColor: isSelected ? activeColor : theme.border,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Select ${iconName} icon`}
+              accessibilityState={{ selected: isSelected }}
+            >
+              <Ionicons
+                name={iconName as any}
+                size={22}
+                color={isSelected ? activeColor : theme.text}
+              />
+            </Pressable>
+          );
+        })}
       </View>
-
-      {/* Icons Section */}
-      <View className="flex-1">
-        {/*<Text className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-3">
-          Select Icon symbol
-        </Text>*/}
-        <View className="flex-row flex-wrap gap-2.5 items-center justify-center bg-muted/40 p-4 rounded-3xl border border-border/20">
-          {ICONS.map((i) => {
-            const isSelected = i === icon;
-            return (
-              <Pressable
-                key={i}
-                onPress={() => {
-                  onSelectIcon(i);
-                  haptic.light();
-                }}
-                style={{
-                  backgroundColor: isSelected ? color.bgColor : "transparent",
-                }}
-                className={cn(
-                  'w-12 h-12 items-center justify-center rounded-2xl border border-transparent',
-                  isSelected && 'border-border/30'
-                )}
-              >
-                <Ionicons
-                  name={i as any}
-                  size={22}
-                  color={isSelected ? color.color : "#71717a"}
-                />
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
     </View>
   );
-}
+};
+
+const styles = StyleSheet.create({
+  container: {
+    marginVertical: SPACING.sm,
+  },
+  sectionTitle: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: SPACING.sm,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: RADII.md,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
