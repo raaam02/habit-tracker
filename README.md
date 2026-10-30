@@ -19,39 +19,49 @@ Designed around speed and feel: open the app, see today's habits, log one with a
   - Offline-first: state hydrates instantaneously on the first frame with no loading spinners or blank screens.
   - Safe, deterministic JSON export and import for seamless multi-device backups.
 
-### 3. Styling, Liquid Glass & Increased Radii
-- **Decision**: Built a dedicated theme module (`constants/theme.ts` & `constants/useAppTheme.ts`) with high-radius Apple squircle design:
-  - Cards: 22dp radius; Sheets: 32dp radius; Chips & Badges: 10–14dp radius.
-  - Native iOS **Liquid Glass** bottom tab bar using `expo-blur` (`BlurView` with `systemMaterial` and translucent backdrop).
+### 3. Floating Liquid Glass Tab Bar & Increased Radii
+- **Decision**: Built a floating capsule pill tab bar (`components/FloatingGlassTabBar.tsx`) with high-radius Apple squircle design:
+  - Cards: 22dp radius; Sheets: 32dp radius; Chips & Badges: 10–14dp radius; Tab Bar: Pill radius (`RADII.pill`).
+  - Native iOS **Liquid Glass** blur using `expo-blur` (`BlurView` with `systemMaterial` and translucent backdrop) and active capsule bubble highlight.
   - Native iOS **formSheet** / `pageSheet` presentation for modals and bottom sheets with grabber handles and 32dp corner radii.
   - Complete elimination of unnecessary uppercase text transforms in favor of clean, natural sentence-case typography.
 
-### 4. Android Edge-to-Edge Safe Area
-- **Decision**: Configured explicit safe-area handling via `react-native-safe-area-context` (`useSafeAreaInsets()`) ensuring content never slips behind the Android status bar or navigation bar.
+### 4. Compact Sheet UX & Smooth Layout Transitions
+- **Decision**: Refactored `components/HabitSheet.tsx` based on modern design standards:
+  - Icon selection moved to a prominent circular preview badge next to the habit name at the top, opening a curated icon dialog modal on tap.
+  - Habit color palette collapsed into a single selected color pill that opens a color swatch modal on demand, dramatically reducing sheet height so inputs never get covered by the virtual keyboard.
+  - When switching between Yes/No (`check`) and Count or Minutes, the Daily Target input smoothly transitions with Reanimated `entering={FadeInDown.duration(200)}` and `exiting={FadeOutUp.duration(150)}` without layout jumps.
 
-### 5. Subtle iOS Swipe & Fluid Transitions
-- **Decision**: Redesigned swipe physics in `components/HabitCard.tsx` following the `apple-design` and `emil-design-eng` guidelines:
-  - Directional horizontal lock with zero vertical stutter or cancellation shake.
-  - Soft rubber-band resistance beyond thresholds and velocity handoff (`event.velocityX`) into critically damped springs (`damping: 24`, `stiffness: 220`, `mass: 1.0`).
-  - Active press feedback scale (`0.985`) on touch down.
-  - Layout transitions (`LinearTransition.springify().damping(22).stiffness(200)`) on cards and lists whenever items grow, shrink, or reorder.
+### 5. Gestures, Full Swipe & Live Running Timer
+- **Decision**: Redesigned swipe physics in `components/HabitCard.tsx` following `apple-design` and `emil-design-eng`:
+  - Left swipe drawer reveals **only** Skip and Archive actions.
+  - Right swipe is fully swipeable across the row with direct 1:1 translation, completing the habit upon passing threshold or fling with spring handoff.
+  - For time-based habits (e.g. Gym, Study), integrated an interactive `RunningHabitTimer` modal featuring an animated SVG progress ring, `MM:SS` timer, play/pause controls, and `AppState` background tracking.
 
-### 6. Week-Wise Horizontally Scrollable Calendar
-- **Decision**: Removed left/right toggle arrows. Replaced with a horizontally paginated carousel spanning full-width weeks (7 equal-width days per page) with native momentum snapping and completion indicators.
+### 6. Bulletproof Week-Wise Scrollable Strip
+- **Decision**: Completely refactored `components/WeekStrip.tsx` with a static 41-week timeline anchored to the current calendar week.
+  - Swiping horizontally snaps cleanly to exactly 1 week at a time with native momentum and zero double-jumping.
+  - The "Today" button and date selector smoothly scroll the carousel to the selected week without offset jitter.
 
-### 7. Drag-to-Reorder Habits
-- **Decision**: Replaced up/down arrow buttons with interactive drag-to-reorder gesture in `mobile/app/(tabs)/habits.tsx`. Dragging lifts the card with scale elevation, animated layout displacement, and haptic ticks.
+### 7. Direct 1:1 Drag-to-Reorder Habits
+- **Decision**: Replaced rubber-band bounce reordering with direct 1:1 finger tracking in `mobile/app/(tabs)/habits.tsx`.
+  - The dragged item lifts with subtle scale and shadow, follows the finger directly without mid-gesture array mutation, and settles cleanly into its target slot with a critically damped transition.
 
-### 8. Understated Settings & Data Reset
-- **Decision**: Replaced harsh full-red reset button with an understated, quiet row with subtle muted typography, guarded by a destructive native confirmation alert.
+### 8. Theme-Aware Confirmation & Subtle Danger Reset
+- **Decision**: Built `components/ConfirmModal.tsx` for Android and Web:
+  - Replaced harsh solid-red reset button with a tasteful, subtle danger row (`rgba(239, 68, 68, 0.08)` soft tint).
+  - Eliminates un-themed raw Android alerts in favor of an in-app modal matching the active dark/light palette.
+  - Resetting data sets `hasCompletedOnboarding: false` and redirects immediately to Onboarding.
 
-### 9. Minimal Mobbin-Inspired Onboarding
-- **Decision**: Implemented a warm 3-step onboarding flow inspired by top Mobbin wellness apps (Everyday, Balance, Atom):
-  - Step 1: User name prompt ("What should we call you?") for dashboard personalization.
-  - Step 2: Primary focus selection (Study & Deep Work, Fitness & Physical Health, Mindful Daily Routine, Balanced Life Mix).
-  - Step 3: Curated starter ritual with customizable templates or clean blank slate.
+### 9. Multi-Interest Onboarding Flow
+- **Decision**: Enhanced onboarding to allow multi-selection of interests (Study & Coding, Gym & Fitness, Mindful Routine, Balanced Life Mix):
+  - Aggregates all matching starter habits (DSA problems, Gym workout, Sleep by 10:30 PM, Study session, GitHub commit) into the starter ritual.
+  - Allows individual habit toggling and personalization before entering the app.
 
-### 10. Responsive Web & PWA
+### 10. Android Notifications & Channel Setup
+- **Decision**: Configured explicit Android Notification Channel (`setNotificationChannelAsync('habit_reminders')`) with `importance: MAX` and added a "Test reminder" action button in Settings to verify immediate notification delivery.
+
+### 11. Responsive Web & PWA
 - **Decision**: On desktop screens, centers the app in a column of max 520px with the bottom tab bar anchored for natural ergonomics. Includes a PWA manifest (`public/manifest.json`), favicon, and full keyboard navigation.
 
 ---

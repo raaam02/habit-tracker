@@ -287,7 +287,7 @@ export const useHabitStore = create<HabitState>()(
           selectedDate: getTodayDateString(),
           settings: {
             ...defaultSettings,
-            hasCompletedOnboarding: true,
+            hasCompletedOnboarding: false,
           },
           undoRecord: null,
         });

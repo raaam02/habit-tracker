@@ -77,11 +77,13 @@ export default function OnboardingScreen() {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [name, setName] = useState('');
-  const [selectedFocus, setSelectedFocus] = useState<string>('focus');
+  const [selectedFocusIds, setSelectedFocusIds] = useState<string[]>(['focus', 'health']);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([
     'dsa',
     'study',
+    'gym',
     'commit',
+    'sleep',
   ]);
 
   const handleStep1Next = () => {
@@ -89,10 +91,27 @@ export default function OnboardingScreen() {
     setStep(2);
   };
 
-  const handleSelectFocus = (focus: FocusArea) => {
+  const handleToggleFocus = (focus: FocusArea) => {
     triggerHaptic.selection();
-    setSelectedFocus(focus.id);
-    setSelectedTemplateIds(focus.templateIds);
+    let nextFocusIds: string[];
+    if (selectedFocusIds.includes(focus.id)) {
+      if (selectedFocusIds.length > 1) {
+        nextFocusIds = selectedFocusIds.filter((id) => id !== focus.id);
+      } else {
+        nextFocusIds = selectedFocusIds;
+      }
+    } else {
+      nextFocusIds = [...selectedFocusIds, focus.id];
+    }
+    setSelectedFocusIds(nextFocusIds);
+
+    // Aggregate all unique template IDs from selected focus areas
+    const aggregated = Array.from(
+      new Set(
+        FOCUS_AREAS.filter((f) => nextFocusIds.includes(f.id)).flatMap((f) => f.templateIds)
+      )
+    );
+    setSelectedTemplateIds(aggregated);
   };
 
   const toggleTemplate = (templateId: string) => {
@@ -215,16 +234,16 @@ export default function OnboardingScreen() {
                 {name.trim() ? `Welcome, ${name.trim()}.` : 'Welcome.'}
               </Text>
               <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-                What is your main priority right now?
+                Select your areas of focus to personalize starter habits:
               </Text>
 
               <View style={styles.focusList}>
                 {FOCUS_AREAS.map((item) => {
-                  const isSelected = selectedFocus === item.id;
+                  const isSelected = selectedFocusIds.includes(item.id);
                   return (
                     <Pressable
                       key={item.id}
-                      onPress={() => handleSelectFocus(item)}
+                      onPress={() => handleToggleFocus(item)}
                       style={({ pressed }) => [
                         styles.focusCard,
                         {

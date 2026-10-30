@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -29,8 +29,8 @@ interface HabitCardProps {
   onComplete: () => void;
   onIncrement: () => void;
   onOpenNumberInput: () => void;
+  onOpenTimer?: () => void;
   onSkip: () => void;
-  onEdit: () => void;
   onArchive: () => void;
   onOpenDetail: () => void;
 }
@@ -44,8 +44,8 @@ export const HabitCard: React.FC<HabitCardProps> = ({
   onComplete,
   onIncrement,
   onOpenNumberInput,
+  onOpenTimer,
   onSkip,
-  onEdit,
   onArchive,
   onOpenDetail,
 }) => {
@@ -82,22 +82,21 @@ export const HabitCard: React.FC<HabitCardProps> = ({
     onComplete();
   };
 
-  // Fluid iOS-style pan gesture: smooth resistance, no jitter, velocity handoff
+  // Fluid pan gesture:
+  // - Full swipe right across row to complete
+  // - Left swipe reveals only Skip & Archive (drawer width 110px)
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
     .onUpdate((event) => {
       'worklet';
       if (event.translationX > 0) {
-        // Right swipe: soft rubber-band resistance past 70px
-        translateX.value =
-          event.translationX > 70
-            ? 70 + (event.translationX - 70) * 0.3
-            : event.translationX;
+        // Direct 1:1 right swipe across row
+        translateX.value = event.translationX;
       } else {
-        // Left swipe: soft rubber-band resistance past -130px
+        // Left swipe drawer resistance past -120px
         translateX.value =
-          event.translationX < -130
-            ? -130 + (event.translationX + 130) * 0.3
+          event.translationX < -120
+            ? -120 + (event.translationX + 120) * 0.2
             : event.translationX;
       }
     })
@@ -106,22 +105,22 @@ export const HabitCard: React.FC<HabitCardProps> = ({
       const swipeDistance = event.translationX;
       const velocity = event.velocityX;
 
-      if (swipeDistance > 60 || velocity > 400) {
-        // Right swipe threshold met -> complete habit with subtle spring
+      if (swipeDistance > 110 || velocity > 450) {
+        // Full swipe right threshold met -> complete habit
         runOnJS(fireComplete)();
         translateX.value = settings.reduceMotion
           ? withTiming(0, { duration: 150 })
-          : withSpring(0, { ...SPRING_CONFIG, velocity });
-      } else if (swipeDistance < -75 || velocity < -400) {
-        // Snap open action drawer cleanly
+          : withSpring(0, { damping: 24, stiffness: 220, velocity });
+      } else if (swipeDistance < -60 || velocity < -400) {
+        // Snap open left drawer (Skip & Archive only, ~110px width)
         translateX.value = settings.reduceMotion
-          ? withTiming(-136, { duration: 150 })
-          : withSpring(-136, { ...SPRING_CONFIG, velocity });
+          ? withTiming(-110, { duration: 150 })
+          : withSpring(-110, { damping: 24, stiffness: 220, velocity });
       } else {
         // Smoothly settle back
         translateX.value = settings.reduceMotion
           ? withTiming(0, { duration: 150 })
-          : withSpring(0, { ...SPRING_CONFIG, velocity });
+          : withSpring(0, { damping: 24, stiffness: 220, velocity });
       }
     });
 
@@ -129,9 +128,9 @@ export const HabitCard: React.FC<HabitCardProps> = ({
     transform: [{ translateX: translateX.value }, { scale: pressScale.value }],
   }));
 
-  // Smooth swipe-right color fill
+  // Full swipe-right fill
   const rightSwipeStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(translateX.value, [0, 50], [0, 1], Extrapolation.CLAMP);
+    const opacity = interpolate(translateX.value, [0, 60], [0, 1], Extrapolation.CLAMP);
     return {
       opacity,
       backgroundColor: habit.color,
@@ -160,7 +159,11 @@ export const HabitCard: React.FC<HabitCardProps> = ({
       onIncrement();
     } else if (habit.type === 'minutes') {
       triggerHaptic.light();
-      onOpenNumberInput();
+      if (onOpenTimer) {
+        onOpenTimer();
+      } else {
+        onOpenNumberInput();
+      }
     } else {
       triggerHaptic.light();
       onComplete();
@@ -190,7 +193,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({
         </View>
       </Animated.View>
 
-      {/* Background layer for Swipe Left (Actions) */}
+      {/* Background layer for Swipe Left (Only Skip & Archive) */}
       <Animated.View style={[styles.actionsBackground, leftSwipeStyle]}>
         <Pressable
           onPress={() => {
@@ -207,23 +210,6 @@ export const HabitCard: React.FC<HabitCardProps> = ({
         >
           <Ionicons name="play-forward" size={17} color={theme.textMuted} />
           <Text style={[styles.actionBtnLabel, { color: theme.textMuted }]}>Skip</Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => {
-            handleResetSwipe();
-            triggerHaptic.light();
-            onEdit();
-          }}
-          style={({ pressed }) => [
-            styles.actionBtn,
-            { backgroundColor: pressed ? theme.surfaceHighlight : theme.elevated },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Edit habit"
-        >
-          <Ionicons name="pencil" size={17} color={theme.accent} />
-          <Text style={[styles.actionBtnLabel, { color: theme.accent }]}>Edit</Text>
         </Pressable>
 
         <Pressable
@@ -301,21 +287,16 @@ export const HabitCard: React.FC<HabitCardProps> = ({
                 </Text>
                 {isSkipped && (
                   <View style={[styles.skipBadge, { backgroundColor: theme.surfaceHighlight }]}>
-                    <Text style={[styles.skipText, { color: theme.textSubtle }]}>Skipped</Text>
+                    <Text style={[styles.skipBadgeText, { color: theme.textMuted }]}>Skipped</Text>
                   </View>
                 )}
               </View>
 
-              {/* Progress / Target subtitle */}
+              {/* Progress & Streak Indicators */}
               <View style={styles.metaRow}>
-                {habit.type === 'count' && (
+                {habit.type !== 'check' && (
                   <Text style={[styles.metaText, { color: theme.textMuted }]}>
-                    {currentValue} / {habit.target} done
-                  </Text>
-                )}
-                {habit.type === 'minutes' && (
-                  <Text style={[styles.metaText, { color: theme.textMuted }]}>
-                    {currentValue} / {habit.target} mins
+                    {currentValue} / {habit.target} {habit.type === 'minutes' ? 'min' : ''}
                   </Text>
                 )}
                 {habit.type === 'check' && (
@@ -356,11 +337,15 @@ export const HabitCard: React.FC<HabitCardProps> = ({
               </View>
             </View>
 
-            {/* Accessible Complete Button Fallback (Right Edge) */}
+            {/* Accessible Action Button Fallback (Right Edge) */}
             <Pressable
               onPress={(e) => {
                 e.stopPropagation();
-                fireComplete();
+                if (habit.type === 'minutes' && !isDone && onOpenTimer) {
+                  onOpenTimer();
+                } else {
+                  fireComplete();
+                }
               }}
               style={({ pressed }) => [
                 styles.checkboxFallback,
@@ -378,6 +363,8 @@ export const HabitCard: React.FC<HabitCardProps> = ({
                 <Ionicons name="checkmark" size={17} color="#FFFFFF" />
               ) : habit.type === 'count' ? (
                 <Text style={[styles.addOneText, { color: theme.textMuted }]}>+1</Text>
+              ) : habit.type === 'minutes' ? (
+                <Ionicons name="play" size={15} color={habit.color} />
               ) : (
                 <View style={styles.emptyCheckDot} />
               )}
@@ -425,29 +412,30 @@ const styles = StyleSheet.create({
   },
   completeActionText: {
     ...TYPOGRAPHY.headline,
-    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
   actionsBackground: {
     ...StyleSheet.absoluteFill,
     borderRadius: RADII.card,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingRight: SPACING.sm,
-    gap: 6,
+    alignItems: 'center',
+    paddingRight: SPACING.xs,
+    gap: SPACING.xs,
   },
   actionBtn: {
-    width: 42,
+    width: 50,
     height: 48,
     borderRadius: RADII.md,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 2,
   },
   actionBtnLabel: {
     ...TYPOGRAPHY.tiny,
     fontSize: 10,
-    marginTop: 2,
     fontWeight: '600',
   },
   card: {
@@ -459,58 +447,59 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.base,
-    minHeight: 70,
+    minHeight: 64,
   },
   iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: SPACING.base,
+    marginRight: SPACING.md,
   },
   textWrap: {
     flex: 1,
-    justifyContent: 'center',
+    marginRight: SPACING.sm,
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
+    marginBottom: 2,
   },
   name: {
     ...TYPOGRAPHY.headline,
     fontSize: 16,
+    fontWeight: '600',
     flexShrink: 1,
   },
   skipBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: RADII.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
   },
-  skipText: {
+  skipBadgeText: {
     ...TYPOGRAPHY.tiny,
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    marginTop: 3,
   },
   metaText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 12,
+    fontSize: 13,
   },
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 7,
+    gap: 3,
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: RADII.sm,
     borderWidth: 1,
-    gap: 3,
   },
   streakText: {
     ...TYPOGRAPHY.tiny,
@@ -518,18 +507,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   checkboxFallback: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: SPACING.sm,
+    marginRight: 4,
   },
   addOneText: {
     ...TYPOGRAPHY.caption,
+    fontSize: 13,
     fontWeight: '700',
-    fontSize: 12,
   },
   emptyCheckDot: {
     width: 8,
@@ -538,8 +527,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   moreButton: {
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-    marginLeft: 2,
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -18,6 +18,8 @@ import {
   formatDayNumber,
   isTodayDate,
   shiftDateString,
+  getTodayDateString,
+  daysBetween,
 } from '../utils/date';
 import { triggerHaptic } from '../services/haptics';
 import { SPACING, RADII, TYPOGRAPHY } from '../constants/theme';
@@ -27,6 +29,11 @@ interface WeekStripProps {
   selectedDate: string;
   onSelectDate: (date: string) => void;
 }
+
+const WEEKS_BEFORE = 20;
+const WEEKS_AFTER = 20;
+const TOTAL_WEEKS = WEEKS_BEFORE + WEEKS_AFTER + 1; // 41 weeks
+const CENTER_INDEX = WEEKS_BEFORE; // 20
 
 export const WeekStrip: React.FC<WeekStripProps> = ({ selectedDate, onSelectDate }) => {
   const { theme } = useAppTheme();
@@ -39,29 +46,51 @@ export const WeekStrip: React.FC<WeekStripProps> = ({ selectedDate, onSelectDate
     Math.min(Dimensions.get('window').width - SPACING.base * 2, 520)
   );
 
-  // Generate 7 consecutive weeks centered around the selected date: offsets -3, -2, -1, 0, 1, 2, 3
-  const weekOffsets = useMemo(() => [-3, -2, -1, 0, 1, 2, 3], []);
-  const initialPageIndex = 3; // Center index (0 offset)
+  const today = useMemo(() => getTodayDateString(), []);
 
+  // Stable weeks array anchored around today
   const weeksData = useMemo(() => {
-    return weekOffsets.map((offset) => {
-      const anchorDate = shiftDateString(selectedDate, offset * 7);
+    return Array.from({ length: TOTAL_WEEKS }, (_, i) => {
+      const offsetWeeks = i - CENTER_INDEX;
+      const anchor = shiftDateString(today, offsetWeeks * 7);
       return {
-        offset,
-        dates: getWeekDates(anchorDate, weekStartDay),
+        index: i,
+        offsetWeeks,
+        dates: getWeekDates(anchor, weekStartDay),
       };
     });
-  }, [selectedDate, weekStartDay, weekOffsets]);
+  }, [today, weekStartDay]);
 
-  // Scroll to center week on mount or when container width changes
+  // Determine week index for any date
+  const getWeekIndexForDate = (targetDate: string): number => {
+    const targetWeekFirstDay = getWeekDates(targetDate, weekStartDay)[0];
+    const centerWeekFirstDay = getWeekDates(today, weekStartDay)[0];
+    const diffDays = daysBetween(centerWeekFirstDay, targetWeekFirstDay);
+    const diffWeeks = Math.round(diffDays / 7);
+    const index = CENTER_INDEX + diffWeeks;
+    return Math.max(0, Math.min(TOTAL_WEEKS - 1, index));
+  };
+
+  const currentWeekIndex = getWeekIndexForDate(selectedDate);
+  const isInitialMount = useRef(true);
+
+  // Initial scroll and animated scroll on date change
   useEffect(() => {
-    if (scrollRef.current && containerWidth > 0) {
+    if (!scrollRef.current || containerWidth <= 0) return;
+
+    if (isInitialMount.current) {
       scrollRef.current.scrollTo({
-        x: initialPageIndex * containerWidth,
+        x: currentWeekIndex * containerWidth,
         animated: false,
       });
+      isInitialMount.current = false;
+    } else {
+      scrollRef.current.scrollTo({
+        x: currentWeekIndex * containerWidth,
+        animated: true,
+      });
     }
-  }, [containerWidth]);
+  }, [currentWeekIndex, containerWidth]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const width = e.nativeEvent.layout.width;
@@ -73,16 +102,17 @@ export const WeekStrip: React.FC<WeekStripProps> = ({ selectedDate, onSelectDate
   const handleMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = e.nativeEvent.contentOffset.x;
     const page = Math.round(offsetX / containerWidth);
-    if (page !== initialPageIndex && page >= 0 && page < weeksData.length) {
+
+    if (page >= 0 && page < weeksData.length && page !== currentWeekIndex) {
       triggerHaptic.selection();
-      const targetWeek = weeksData[page];
-      // Select corresponding day of week in the new week
-      const currentSelectedWeekdayDates = weeksData[initialPageIndex].dates;
-      const dayIndex = currentSelectedWeekdayDates.indexOf(selectedDate);
+      const targetWeekDates = weeksData[page].dates;
+      const currentWeekDates = weeksData[currentWeekIndex]?.dates || [];
+      const dayOfWeekIndex = currentWeekDates.indexOf(selectedDate);
+
       const newSelectedDate =
-        dayIndex >= 0 && dayIndex < targetWeek.dates.length
-          ? targetWeek.dates[dayIndex]
-          : targetWeek.dates[0];
+        dayOfWeekIndex >= 0 && dayOfWeekIndex < targetWeekDates.length
+          ? targetWeekDates[dayOfWeekIndex]
+          : targetWeekDates[0];
 
       onSelectDate(newSelectedDate);
     }
@@ -100,13 +130,13 @@ export const WeekStrip: React.FC<WeekStripProps> = ({ selectedDate, onSelectDate
         contentContainerStyle={styles.scrollContent}
       >
         {weeksData.map((week) => (
-          <View key={week.offset} style={[styles.weekPage, { width: containerWidth }]}>
+          <View key={week.index} style={[styles.weekPage, { width: containerWidth }]}>
             <View style={styles.daysContainer}>
               {week.dates.map((dateStr) => {
                 const isSelected = dateStr === selectedDate;
                 const isToday = isTodayDate(dateStr);
 
-                // Compute completion for day
+                // Compute completion status for date
                 const scheduledForDay = habits.filter(
                   (h) => !h.archivedAt && isDayScheduled(h, dateStr)
                 );
@@ -138,19 +168,19 @@ export const WeekStrip: React.FC<WeekStripProps> = ({ selectedDate, onSelectDate
                         borderColor: isSelected
                           ? theme.accent
                           : isToday
-                          ? `${theme.accent}60`
+                          ? theme.borderLight
                           : theme.border,
-                        transform: [{ scale: pressed ? 0.96 : 1 }],
+                        transform: [{ scale: pressed ? 0.95 : 1 }],
                       },
                     ]}
                     accessibilityRole="button"
-                    accessibilityLabel={`${formatShortDay(dateStr)}, ${formatDayNumber(dateStr)}${
-                      isToday ? ', Today' : ''
-                    }${isSelected ? ', Selected' : ''}`}
+                    accessibilityLabel={`${dateStr}${isSelected ? ', selected' : ''}${
+                      isToday ? ', today' : ''
+                    }`}
                   >
                     <Text
                       style={[
-                        styles.dayLabel,
+                        styles.shortDayText,
                         {
                           color: isSelected
                             ? '#FFFFFF'
@@ -166,31 +196,30 @@ export const WeekStrip: React.FC<WeekStripProps> = ({ selectedDate, onSelectDate
 
                     <Text
                       style={[
-                        styles.dayNumber,
+                        styles.dayNumberText,
                         {
-                          color: isSelected ? '#FFFFFF' : theme.text,
-                          fontWeight: isSelected ? '700' : '600',
+                          color: isSelected
+                            ? '#FFFFFF'
+                            : isToday
+                            ? theme.text
+                            : theme.textMuted,
+                          fontWeight: isSelected ? '700' : isToday ? '600' : '400',
                         },
                       ]}
                     >
                       {formatDayNumber(dateStr)}
                     </Text>
 
-                    {/* Completion status dot */}
-                    <View
-                      style={[
-                        styles.statusDot,
-                        {
-                          backgroundColor: isSelected
-                            ? '#FFFFFF'
-                            : isFullyDone
-                            ? theme.success
-                            : isPartiallyDone
-                            ? theme.warning
-                            : 'transparent',
-                        },
-                      ]}
-                    />
+                    {/* Completion Status Dot */}
+                    <View style={styles.dotContainer}>
+                      {isFullyDone ? (
+                        <View style={[styles.statusDot, { backgroundColor: isSelected ? '#FFFFFF' : theme.success }]} />
+                      ) : isPartiallyDone ? (
+                        <View style={[styles.statusDot, { backgroundColor: isSelected ? 'rgba(255,255,255,0.7)' : theme.warning }]} />
+                      ) : (
+                        <View style={[styles.statusDotPlaceholder]} />
+                      )}
+                    </View>
                   </Pressable>
                 );
               })}
@@ -204,11 +233,11 @@ export const WeekStrip: React.FC<WeekStripProps> = ({ selectedDate, onSelectDate
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginVertical: SPACING.xs,
-    overflow: 'hidden',
+    marginVertical: SPACING.sm,
+    width: '100%',
   },
   scrollContent: {
-    alignItems: 'center',
+    flexDirection: 'row',
   },
   weekPage: {
     paddingHorizontal: 2,
@@ -216,30 +245,39 @@ const styles = StyleSheet.create({
   daysContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 5,
+    gap: 6,
   },
   dayCell: {
     flex: 1,
-    minHeight: 64,
-    borderRadius: RADII.md,
-    borderWidth: 1.2,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
+    borderRadius: RADII.md,
+    borderWidth: 1,
+    minHeight: 64,
   },
-  dayLabel: {
+  shortDayText: {
     ...TYPOGRAPHY.tiny,
-    fontSize: 12,
+    fontSize: 11,
+    marginBottom: 3,
   },
-  dayNumber: {
-    ...TYPOGRAPHY.body,
-    fontSize: 16,
-    marginTop: 2,
+  dayNumberText: {
+    ...TYPOGRAPHY.headline,
+    fontSize: 15,
+  },
+  dotContainer: {
+    height: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
   },
   statusDot: {
-    width: 4.5,
-    height: 4.5,
-    borderRadius: 2.25,
-    marginTop: 4,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  statusDotPlaceholder: {
+    width: 4,
+    height: 4,
   },
 });

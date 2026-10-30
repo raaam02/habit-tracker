@@ -7,20 +7,22 @@ import {
   Switch,
   StyleSheet,
   SafeAreaView,
-  Alert,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAppTheme } from '../../constants/useAppTheme';
 import { useHabitStore } from '../../store/habitStore';
 import { ThemePreference } from '../../types/habit';
 import { exportHabitData, pickAndImportData } from '../../services/backup';
-import { syncHabitReminders } from '../../services/notifications';
+import { syncHabitReminders, triggerTestNotification } from '../../services/notifications';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../../constants/theme';
 import { triggerHaptic } from '../../services/haptics';
 
 export default function SettingsScreen() {
   const { theme, themePreference, setThemePreference } = useAppTheme();
+  const router = useRouter();
   const habits = useHabitStore((state) => state.habits);
   const logs = useHabitStore((state) => state.logs);
   const settings = useHabitStore((state) => state.settings);
@@ -31,11 +33,28 @@ export default function SettingsScreen() {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [showResetModal, setShowResetModal] = useState(false);
 
   const handleToggleReminders = (enabled: boolean) => {
     triggerHaptic.light();
     updateSettings({ remindersEnabled: enabled });
     syncHabitReminders(habits, enabled);
+  };
+
+  const handleTestNotification = async () => {
+    triggerHaptic.medium();
+    if (Platform.OS === 'web') {
+      setMessage('Notifications are configured for Android & iOS native devices.');
+      setTimeout(() => setMessage(null), 3500);
+      return;
+    }
+    const sent = await triggerTestNotification();
+    if (sent) {
+      setMessage('Test notification sent! Check your notification shade.');
+    } else {
+      setMessage('Could not trigger notification. Ensure device permissions are enabled.');
+    }
+    setTimeout(() => setMessage(null), 3500);
   };
 
   const handleToggleReduceMotion = (enabled: boolean) => {
@@ -69,7 +88,8 @@ export default function SettingsScreen() {
           setMessage(`Successfully imported ${result.habits.length} habits`);
           setTimeout(() => setMessage(null), 3500);
         } else {
-          Alert.alert('Import Failed', 'The selected file is not a valid habit tracker backup.');
+          setMessage('Import failed. Invalid habit tracker backup file.');
+          setTimeout(() => setMessage(null), 3500);
         }
       }
     } finally {
@@ -77,35 +97,10 @@ export default function SettingsScreen() {
     }
   };
 
-  const confirmReset = () => {
-    triggerHaptic.heavy();
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm(
-        'Warning: This will delete all your habits and logged history permanently. Proceed?'
-      );
-      if (confirmed) {
-        resetAllData();
-        setMessage('All data was reset');
-        setTimeout(() => setMessage(null), 3000);
-      }
-    } else {
-      Alert.alert(
-        'Reset All Data',
-        'Are you sure? This will delete all your habits, logs, and streaks from this device. This cannot be undone.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Reset Everything',
-            style: 'destructive',
-            onPress: () => {
-              resetAllData();
-              setMessage('All data was reset');
-              setTimeout(() => setMessage(null), 3000);
-            },
-          },
-        ]
-      );
-    }
+  const executeReset = () => {
+    resetAllData();
+    setShowResetModal(false);
+    router.replace('/onboarding');
   };
 
   return (
@@ -125,8 +120,8 @@ export default function SettingsScreen() {
 
         {/* Status Toast */}
         {message && (
-          <View style={[styles.toast, { backgroundColor: theme.elevated, borderColor: theme.success }]}>
-            <Ionicons name="checkmark-circle" size={18} color={theme.success} />
+          <View style={[styles.toast, { backgroundColor: theme.elevated, borderColor: theme.accent }]}>
+            <Ionicons name="information-circle" size={18} color={theme.accent} />
             <Text style={[styles.toastText, { color: theme.text }]}>{message}</Text>
           </View>
         )}
@@ -240,6 +235,30 @@ export default function SettingsScreen() {
               thumbColor="#FFFFFF"
             />
           </View>
+
+          {/* Test Notification Row */}
+          {settings.remindersEnabled && (
+            <View style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.border, marginTop: SPACING.md, paddingTop: SPACING.md }]}>
+              <View style={styles.rowLabelWrap}>
+                <Text style={[styles.rowTitle, { color: theme.text }]}>Test reminder</Text>
+                <Text style={[styles.rowSub, { color: theme.textMuted }]}>
+                  Trigger an immediate notification to test channel
+                </Text>
+              </View>
+              <Pressable
+                onPress={handleTestNotification}
+                style={({ pressed }) => [
+                  styles.testNotifBtn,
+                  { backgroundColor: pressed ? theme.surfaceHighlight : theme.accentMuted },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Send test reminder"
+              >
+                <Ionicons name="notifications-outline" size={14} color={theme.accent} />
+                <Text style={[styles.testNotifBtnText, { color: theme.accent }]}>Send test</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {/* Backup & Restore */}
@@ -289,26 +308,29 @@ export default function SettingsScreen() {
             </Pressable>
           </View>
 
-          {/* Understated, subtle reset row (not harsh red) */}
+          {/* Subtle Danger Reset Row (Soft red tint, understated and tasteful) */}
           <Pressable
-            onPress={confirmReset}
+            onPress={() => {
+              triggerHaptic.medium();
+              setShowResetModal(true);
+            }}
             style={({ pressed }) => [
-              styles.subtleResetRow,
+              styles.subtleDangerRow,
               {
-                backgroundColor: pressed ? theme.surfaceHighlight : 'transparent',
-                borderColor: theme.border,
+                backgroundColor: pressed ? 'rgba(239, 68, 68, 0.16)' : 'rgba(239, 68, 68, 0.08)',
+                borderColor: 'rgba(239, 68, 68, 0.28)',
               },
             ]}
             accessibilityRole="button"
             accessibilityLabel="Reset all data"
           >
             <View style={styles.resetLeft}>
-              <Ionicons name="trash-outline" size={17} color={theme.textSubtle} />
-              <Text style={[styles.subtleResetLabel, { color: theme.textMuted }]}>
+              <Ionicons name="trash-outline" size={17} color={theme.danger} />
+              <Text style={[styles.subtleDangerLabel, { color: theme.danger }]}>
                 Reset all habits & logs
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={15} color={theme.textSubtle} />
+            <Ionicons name="chevron-forward" size={15} color={theme.danger} style={{ opacity: 0.7 }} />
           </Pressable>
         </View>
 
@@ -319,6 +341,18 @@ export default function SettingsScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Theme-Aware Reset Confirmation Dialog */}
+      <ConfirmModal
+        visible={showResetModal}
+        title="Reset All Data"
+        message="Are you sure? This will delete all your habits, logs, and streak history from this device. You will be redirected to onboarding to start fresh."
+        confirmLabel="Reset Everything"
+        cancelLabel="Cancel"
+        isDestructive
+        onConfirm={executeReset}
+        onCancel={() => setShowResetModal(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -333,7 +367,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: SPACING.base,
     paddingTop: SPACING.sm,
-    paddingBottom: 90,
+    paddingBottom: 110,
   },
   header: {
     marginBottom: SPACING.md,
@@ -358,7 +392,8 @@ const styles = StyleSheet.create({
   },
   toastText: {
     ...TYPOGRAPHY.headline,
-    fontSize: 14,
+    fontSize: 13,
+    flex: 1,
   },
   card: {
     padding: SPACING.base,
@@ -418,6 +453,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  testNotifBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: RADII.pill,
+  },
+  testNotifBtnText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 13,
+    fontWeight: '600',
+  },
   buttonsRow: {
     flexDirection: 'row',
     gap: SPACING.sm,
@@ -439,7 +487,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  subtleResetRow: {
+  subtleDangerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -453,9 +501,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
   },
-  subtleResetLabel: {
+  subtleDangerLabel: {
     ...TYPOGRAPHY.body,
     fontSize: 14,
+    fontWeight: '600',
   },
   footer: {
     alignItems: 'center',

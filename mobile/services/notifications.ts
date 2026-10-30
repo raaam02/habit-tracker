@@ -8,11 +8,32 @@ if (Platform.OS !== 'web') {
     handleNotification: async () => ({
       shouldShowAlert: true,
       shouldPlaySound: true,
-      shouldSetBadge: false,
+      shouldSetBadge: true,
       shouldShowBanner: true,
       shouldShowList: true,
     }),
   });
+}
+
+/**
+ * Configure Android Notification Channel (Required on Android 8.0+)
+ */
+export async function setupNotificationChannel(): Promise<void> {
+  if (Platform.OS === 'android') {
+    try {
+      await Notifications.setNotificationChannelAsync('habit_reminders', {
+        name: 'Habit Reminders',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#3B82F6',
+        sound: 'default',
+        enableVibrate: true,
+        showBadge: true,
+      });
+    } catch (e) {
+      console.warn('Could not setup Android notification channel:', e);
+    }
+  }
 }
 
 /**
@@ -22,6 +43,8 @@ export async function requestNotificationPermission(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
 
   try {
+    await setupNotificationChannel();
+
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
@@ -43,7 +66,6 @@ export async function syncHabitReminders(habits: Habit[], remindersEnabled: bool
   if (Platform.OS === 'web') return;
 
   try {
-    // Cancel all existing scheduled notifications
     await Notifications.cancelAllScheduledNotificationsAsync();
 
     if (!remindersEnabled) return;
@@ -60,7 +82,6 @@ export async function syncHabitReminders(habits: Habit[], remindersEnabled: bool
 
       if (isNaN(hour) || isNaN(minute)) continue;
 
-      // Schedule for each weekday
       for (const weekday of habit.scheduledDays) {
         // Expo Notifications weekday: 1 = Sunday, 2 = Monday, ..., 7 = Saturday
         const expoWeekday = weekday + 1;
@@ -68,8 +89,10 @@ export async function syncHabitReminders(habits: Habit[], remindersEnabled: bool
         await Notifications.scheduleNotificationAsync({
           content: {
             title: `Time for ${habit.name}`,
-            body: `Keep your streak going! Tap to mark as done.`,
+            body: `Keep your streak thriving! Tap to log progress.`,
             data: { habitId: habit.id },
+            sound: 'default',
+            ...(Platform.OS === 'android' ? { channelId: 'habit_reminders' } : {}),
           },
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
@@ -82,5 +105,31 @@ export async function syncHabitReminders(habits: Habit[], remindersEnabled: bool
     }
   } catch (err) {
     console.warn('Failed to sync habit reminders:', err);
+  }
+}
+
+/**
+ * Send an immediate test notification to verify the pipeline.
+ */
+export async function triggerTestNotification(): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+
+  try {
+    const hasPermission = await requestNotificationPermission();
+    if (!hasPermission) return false;
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Habit Tracker Reminder 🎯',
+        body: 'Notifications are working! Your scheduled habits will remind you on time.',
+        sound: 'default',
+        ...(Platform.OS === 'android' ? { channelId: 'habit_reminders' } : {}),
+      },
+      trigger: null, // trigger immediately
+    });
+    return true;
+  } catch (e) {
+    console.warn('Test notification failed:', e);
+    return false;
   }
 }

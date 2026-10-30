@@ -6,15 +6,12 @@ import {
   Pressable,
   StyleSheet,
   SafeAreaView,
-  Alert,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
   runOnJS,
   LinearTransition,
@@ -24,15 +21,18 @@ import { useHabitStore } from '../../store/habitStore';
 import { Habit } from '../../types/habit';
 import { HabitSheet } from '../../components/HabitSheet';
 import { HabitDetailModal } from '../../components/HabitDetailModal';
+import { ConfirmModal } from '../../components/ConfirmModal';
 import { EmptyState } from '../../components/EmptyState';
-import { SPACING, RADII, TYPOGRAPHY, SPRING_CONFIG } from '../../constants/theme';
+import { SPACING, RADII, TYPOGRAPHY } from '../../constants/theme';
 import { triggerHaptic } from '../../services/haptics';
+
+const ROW_HEIGHT = 68;
 
 interface DraggableHabitItemProps {
   habit: Habit;
   index: number;
   total: number;
-  onSwap: (fromIndex: number, toIndex: number) => void;
+  onReorder: (fromIndex: number, toIndex: number) => void;
   onPress: () => void;
   onEdit: () => void;
   onArchive: () => void;
@@ -42,7 +42,7 @@ const DraggableHabitItem: React.FC<DraggableHabitItemProps> = ({
   habit,
   index,
   total,
-  onSwap,
+  onReorder,
   onPress,
   onEdit,
   onArchive,
@@ -51,6 +51,7 @@ const DraggableHabitItem: React.FC<DraggableHabitItemProps> = ({
   const translateY = useSharedValue(0);
   const isDragging = useSharedValue(false);
 
+  // Direct 1:1 drag gesture without rubber-band oscillation
   const dragGesture = Gesture.Pan()
     .onStart(() => {
       'worklet';
@@ -60,36 +61,38 @@ const DraggableHabitItem: React.FC<DraggableHabitItemProps> = ({
     .onUpdate((event) => {
       'worklet';
       translateY.value = event.translationY;
-
-      // Swap threshold ~54px per row
-      if (event.translationY > 50 && index < total - 1) {
-        runOnJS(onSwap)(index, index + 1);
-        translateY.value = event.translationY - 50;
-      } else if (event.translationY < -50 && index > 0) {
-        runOnJS(onSwap)(index, index - 1);
-        translateY.value = event.translationY + 50;
-      }
     })
-    .onEnd(() => {
+    .onEnd((event) => {
       'worklet';
       isDragging.value = false;
-      translateY.value = withSpring(0, SPRING_CONFIG);
+      const moveCount = Math.round(event.translationY / ROW_HEIGHT);
+      const targetIndex = Math.max(0, Math.min(total - 1, index + moveCount));
+
+      // Settle directly into target position with clean critically-damped timing
+      translateY.value = withTiming(0, { duration: 160 }, () => {
+        if (targetIndex !== index) {
+          runOnJS(onReorder)(index, targetIndex);
+        }
+      });
       runOnJS(triggerHaptic.light)();
     });
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       { translateY: translateY.value },
-      { scale: isDragging.value ? withSpring(1.025, SPRING_CONFIG) : withSpring(1, SPRING_CONFIG) },
+      { scale: isDragging.value ? withTiming(1.025, { duration: 120 }) : withTiming(1, { duration: 140 }) },
     ],
     zIndex: isDragging.value ? 99 : 1,
-    elevation: isDragging.value ? 8 : 0,
-    shadowOpacity: isDragging.value ? 0.35 : 0,
+    elevation: isDragging.value ? 10 : 0,
+    shadowColor: '#000000',
+    shadowOpacity: isDragging.value ? 0.3 : 0,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   }));
 
   return (
     <Animated.View
-      layout={LinearTransition.springify().damping(22).stiffness(200)}
+      layout={LinearTransition.springify().damping(24).stiffness(240)}
       style={[
         styles.habitCard,
         {
@@ -99,9 +102,9 @@ const DraggableHabitItem: React.FC<DraggableHabitItemProps> = ({
         animatedStyle,
       ]}
     >
-      {/* Drag Handle */}
+      {/* Drag Handle with Direct Manipulation */}
       <GestureDetector gesture={dragGesture}>
-        <View style={styles.dragHandle} hitSlop={10}>
+        <View style={styles.dragHandle} hitSlop={12} accessibilityRole="button" accessibilityLabel="Drag to reorder">
           <Ionicons name="reorder-two" size={24} color={theme.textSubtle} />
         </View>
       </GestureDetector>
@@ -125,7 +128,7 @@ const DraggableHabitItem: React.FC<DraggableHabitItemProps> = ({
         </View>
       </Pressable>
 
-      {/* Quick Action buttons */}
+      {/* Action buttons */}
       <View style={styles.actionsRow}>
         <Pressable
           onPress={onEdit}
@@ -171,6 +174,7 @@ export default function HabitsScreen() {
   const [sheetVisible, setSheetVisible] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null);
+  const [habitToDelete, setHabitToDelete] = useState<Habit | null>(null);
 
   const activeHabits = habits
     .filter((h) => !h.archivedAt)
@@ -180,34 +184,23 @@ export default function HabitsScreen() {
     .filter((h) => !!h.archivedAt)
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
-  const handleSwap = (fromIndex: number, toIndex: number) => {
-    if (fromIndex < 0 || toIndex < 0 || fromIndex >= activeHabits.length || toIndex >= activeHabits.length) {
-      return;
-    }
+  const handleReorder = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
     const updated = [...activeHabits];
-    const item = updated.splice(fromIndex, 1)[0];
-    updated.splice(toIndex, 0, item);
-    reorderHabits(updated);
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    const reordered = updated.map((item, idx) => ({ ...item, sortOrder: idx }));
+    reorderHabits(reordered);
   };
 
-  const confirmDelete = (habit: Habit) => {
-    triggerHaptic.heavy();
-    if (Platform.OS === 'web') {
-      const ok = window.confirm(`Permanently delete "${habit.name}" and its logs?`);
-      if (ok) deleteHabit(habit.id);
+  const handleCreateOrEdit = (
+    data: Omit<Habit, 'id' | 'createdAt' | 'sortOrder'>
+  ) => {
+    if (editingHabit) {
+      editHabit(editingHabit.id, data);
+      setEditingHabit(null);
     } else {
-      Alert.alert(
-        'Delete Habit',
-        `Are you sure you want to permanently delete "${habit.name}" and its logs?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => deleteHabit(habit.id),
-          },
-        ]
-      );
+      addHabit(data);
     }
   };
 
@@ -240,25 +233,25 @@ export default function HabitsScreen() {
           </Pressable>
         </View>
 
-        {/* Tab Segment (Active vs Archived) */}
-        <View style={[styles.segmentContainer, { backgroundColor: theme.surfaceHighlight }]}>
+        {/* Tab switch */}
+        <View style={[styles.tabBar, { backgroundColor: theme.elevated }]}>
           <Pressable
             onPress={() => {
               triggerHaptic.selection();
               setActiveTab('active');
             }}
             style={[
-              styles.segmentBtn,
-              { backgroundColor: activeTab === 'active' ? theme.surface : 'transparent' },
+              styles.tabBtn,
+              {
+                backgroundColor: activeTab === 'active' ? theme.accent : 'transparent',
+              },
             ]}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'active' }}
           >
             <Text
               style={[
-                styles.segmentLabel,
+                styles.tabBtnText,
                 {
-                  color: activeTab === 'active' ? theme.text : theme.textMuted,
+                  color: activeTab === 'active' ? '#FFFFFF' : theme.textMuted,
                   fontWeight: activeTab === 'active' ? '700' : '500',
                 },
               ]}
@@ -273,17 +266,17 @@ export default function HabitsScreen() {
               setActiveTab('archived');
             }}
             style={[
-              styles.segmentBtn,
-              { backgroundColor: activeTab === 'archived' ? theme.surface : 'transparent' },
+              styles.tabBtn,
+              {
+                backgroundColor: activeTab === 'archived' ? theme.accent : 'transparent',
+              },
             ]}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'archived' }}
           >
             <Text
               style={[
-                styles.segmentLabel,
+                styles.tabBtnText,
                 {
-                  color: activeTab === 'archived' ? theme.text : theme.textMuted,
+                  color: activeTab === 'archived' ? '#FFFFFF' : theme.textMuted,
                   fontWeight: activeTab === 'archived' ? '700' : '500',
                 },
               ]}
@@ -293,113 +286,114 @@ export default function HabitsScreen() {
           </Pressable>
         </View>
 
-        {/* Habit List */}
+        {/* List */}
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {activeTab === 'active' ? (
-            activeHabits.length === 0 ? (
-              <EmptyState
-                icon="layers-outline"
-                title="No active habits"
-                description="Get started by creating a new habit or exploring starter templates."
-                actionLabel="Create habit"
-                onAction={() => {
-                  setEditingHabit(null);
-                  setSheetVisible(true);
-                }}
-              />
-            ) : (
-              activeHabits.map((habit, index) => (
-                <DraggableHabitItem
-                  key={habit.id}
-                  habit={habit}
-                  index={index}
-                  total={activeHabits.length}
-                  onSwap={handleSwap}
-                  onPress={() => {
-                    triggerHaptic.light();
-                    setDetailHabit(habit);
-                  }}
-                  onEdit={() => {
-                    triggerHaptic.light();
-                    setEditingHabit(habit);
+          {activeTab === 'active' && (
+            <>
+              {activeHabits.length === 0 ? (
+                <EmptyState
+                  icon="list-outline"
+                  title="No active habits"
+                  description="Add your first ritual to start building lasting streaks."
+                  actionLabel="Add habit"
+                  onAction={() => {
+                    setEditingHabit(null);
                     setSheetVisible(true);
                   }}
-                  onArchive={() => {
-                    triggerHaptic.light();
-                    archiveHabit(habit.id);
-                  }}
                 />
-              ))
-            )
-          ) : archivedHabits.length === 0 ? (
-            <EmptyState
-              icon="archive-outline"
-              title="No archived habits"
-              description="Habits you archive will appear here. You can restore them anytime without losing your historical logs."
-            />
-          ) : (
-            archivedHabits.map((habit) => (
-              <View
-                key={habit.id}
-                style={[
-                  styles.habitCard,
-                  { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.iconWrap,
-                    { backgroundColor: `${habit.color}18` },
-                  ]}
-                >
-                  <Ionicons name={habit.icon as any} size={20} color={habit.color} />
-                </View>
-
-                <View style={styles.infoCol}>
-                  <Text style={[styles.name, { color: theme.textMuted }]} numberOfLines={1}>
-                    {habit.name}
-                  </Text>
-                  <Text style={[styles.scheduleText, { color: theme.textSubtle }]}>
-                    Archived
-                  </Text>
-                </View>
-
-                <View style={styles.actionsRow}>
-                  <Pressable
-                    onPress={() => {
-                      triggerHaptic.success();
-                      restoreHabit(habit.id);
+              ) : (
+                activeHabits.map((habit, index) => (
+                  <DraggableHabitItem
+                    key={habit.id}
+                    habit={habit}
+                    index={index}
+                    total={activeHabits.length}
+                    onReorder={handleReorder}
+                    onPress={() => setDetailHabit(habit)}
+                    onEdit={() => {
+                      setEditingHabit(habit);
+                      setSheetVisible(true);
                     }}
-                    style={({ pressed }) => [
-                      styles.actionBtn,
-                      { backgroundColor: pressed ? theme.surfaceHighlight : 'transparent' },
-                    ]}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel="Restore habit"
-                  >
-                    <Ionicons name="refresh-outline" size={18} color={theme.success} />
-                  </Pressable>
+                    onArchive={() => {
+                      triggerHaptic.light();
+                      archiveHabit(habit.id);
+                    }}
+                  />
+                ))
+              )}
+            </>
+          )}
 
-                  <Pressable
-                    onPress={() => confirmDelete(habit)}
-                    style={({ pressed }) => [
-                      styles.actionBtn,
-                      { backgroundColor: pressed ? theme.surfaceHighlight : 'transparent' },
+          {activeTab === 'archived' && (
+            <>
+              {archivedHabits.length === 0 ? (
+                <EmptyState
+                  icon="archive-outline"
+                  title="No archived habits"
+                  description="When you archive a habit, it rests here without affecting active streaks."
+                />
+              ) : (
+                archivedHabits.map((habit) => (
+                  <View
+                    key={habit.id}
+                    style={[
+                      styles.archivedCard,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: theme.border,
+                      },
                     ]}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel="Delete habit permanently"
                   >
-                    <Ionicons name="trash-outline" size={18} color={theme.danger} />
-                  </Pressable>
-                </View>
-              </View>
-            ))
+                    <View style={styles.archivedInfo}>
+                      <View style={[styles.iconWrap, { backgroundColor: `${habit.color}15` }]}>
+                        <Ionicons name={habit.icon as any} size={20} color={habit.color} />
+                      </View>
+                      <View style={styles.infoCol}>
+                        <Text style={[styles.name, { color: theme.textMuted }]} numberOfLines={1}>
+                          {habit.name}
+                        </Text>
+                        <Text style={[styles.scheduleText, { color: theme.textSubtle }]}>
+                          Archived • Tap restore to bring back
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.archivedActions}>
+                      <Pressable
+                        onPress={() => {
+                          triggerHaptic.success();
+                          restoreHabit(habit.id);
+                        }}
+                        style={[styles.restoreBtn, { backgroundColor: theme.accentMuted }]}
+                        hitSlop={6}
+                        accessibilityRole="button"
+                        accessibilityLabel="Restore habit"
+                      >
+                        <Ionicons name="refresh" size={15} color={theme.accent} />
+                        <Text style={[styles.restoreBtnText, { color: theme.accent }]}>Restore</Text>
+                      </Pressable>
+
+                      <Pressable
+                        onPress={() => {
+                          triggerHaptic.heavy();
+                          setHabitToDelete(habit);
+                        }}
+                        style={[styles.deleteBtn, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}
+                        hitSlop={6}
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete habit permanently"
+                      >
+                        <Ionicons name="trash-outline" size={15} color={theme.danger} />
+                      </Pressable>
+                    </View>
+                  </View>
+                ))
+              )}
+            </>
           )}
         </ScrollView>
       </View>
@@ -412,17 +406,10 @@ export default function HabitsScreen() {
           setSheetVisible(false);
           setEditingHabit(null);
         }}
-        onSave={(data) => {
-          if (editingHabit) {
-            editHabit(editingHabit.id, data);
-            setEditingHabit(null);
-          } else {
-            addHabit(data);
-          }
-        }}
+        onSave={handleCreateOrEdit}
       />
 
-      {/* Detail Modal */}
+      {/* Habit Detail Modal */}
       <HabitDetailModal
         visible={!!detailHabit}
         habit={detailHabit}
@@ -431,6 +418,23 @@ export default function HabitsScreen() {
           setEditingHabit(habit);
           setSheetVisible(true);
         }}
+      />
+
+      {/* Theme-Aware Delete Confirmation Modal */}
+      <ConfirmModal
+        visible={!!habitToDelete}
+        title="Delete Habit"
+        message={`Are you sure you want to permanently delete "${habitToDelete?.name}"? All logged progress will be erased.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        isDestructive
+        onConfirm={() => {
+          if (habitToDelete) {
+            deleteHabit(habitToDelete.id);
+            setHabitToDelete(null);
+          }
+        }}
+        onCancel={() => setHabitToDelete(null)}
       />
     </SafeAreaView>
   );
@@ -457,39 +461,38 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...TYPOGRAPHY.caption,
-    fontSize: 14,
+    fontSize: 13,
     marginTop: 2,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: SPACING.base,
     paddingVertical: SPACING.sm,
-    borderRadius: RADII.card,
-    minHeight: 40,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADII.pill,
   },
   addBtnText: {
     ...TYPOGRAPHY.headline,
-    fontSize: 14,
+    fontSize: 13,
     color: '#FFFFFF',
     fontWeight: '700',
   },
-  segmentContainer: {
+  tabBar: {
     flexDirection: 'row',
     borderRadius: RADII.card,
     padding: 3,
     marginBottom: SPACING.md,
   },
-  segmentBtn: {
+  tabBtn: {
     flex: 1,
     paddingVertical: SPACING.sm,
     borderRadius: RADII.md,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 38,
+    minHeight: 36,
   },
-  segmentLabel: {
+  tabBtnText: {
     ...TYPOGRAPHY.caption,
     fontSize: 13,
   },
@@ -497,40 +500,37 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 110,
   },
   habitCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
+    paddingHorizontal: SPACING.sm,
     borderRadius: RADII.card,
     borderWidth: 1,
-    marginVertical: 4,
-    minHeight: 66,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
+    marginBottom: SPACING.sm,
+    minHeight: ROW_HEIGHT,
   },
   dragHandle: {
-    paddingHorizontal: 8,
-    paddingVertical: 12,
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: SPACING.sm,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 4,
   },
   habitMainPressable: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: 2,
   },
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: SPACING.md,
+    marginRight: SPACING.sm,
   },
   infoCol: {
     flex: 1,
@@ -552,7 +552,47 @@ const styles = StyleSheet.create({
   actionBtn: {
     width: 36,
     height: 36,
-    borderRadius: RADII.sm,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  archivedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.base,
+    borderRadius: RADII.card,
+    borderWidth: 1,
+    marginBottom: SPACING.sm,
+  },
+  archivedInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  archivedActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  restoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: RADII.pill,
+  },
+  restoreBtnText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  deleteBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
