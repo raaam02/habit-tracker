@@ -19,24 +19,30 @@ Designed around speed and feel: open the app, see today's habits, log one with a
   - Offline-first: state hydrates instantaneously on the first frame with no loading spinners or blank screens.
   - Safe, deterministic JSON export and import for seamless multi-device backups.
 
-### 3. Floating Liquid Glass Tab Bar & Increased Radii
-- **Decision**: Built a floating capsule pill tab bar (`components/FloatingGlassTabBar.tsx`) with high-radius Apple squircle design:
-  - Cards: 22dp radius; Sheets: 32dp radius; Chips & Badges: 10–14dp radius; Tab Bar: Pill radius (`RADII.pill`).
-  - Native iOS **Liquid Glass** blur using `expo-blur` (`BlurView` with `systemMaterial` and translucent backdrop) and active capsule bubble highlight.
-  - Native iOS **formSheet** / `pageSheet` presentation for modals and bottom sheets with grabber handles and 32dp corner radii.
-  - Complete elimination of unnecessary uppercase text transforms in favor of clean, natural sentence-case typography.
+### 3. Native iOS Tab Bar (UITabBarController) & Multiplatform Tabs
+- **Decision**: Implemented native platform tab navigation via `expo-router/native-tabs` ([`_layout.native.tsx`](file:///d:/Projects/habit-tracker/mobile/app/%28tabs%29/_layout.native.tsx)):
+  - Directly binds to iOS UIKit `UITabBarController` with SF Symbols (`checkmark.circle`, `chart.bar.xaxis`, `square.stack.3d.up`, `gearshape`), system material vibrancy, native minimize-on-scroll behavior, and haptic tab switching.
+  - Retains web navigation shell in `_layout.tsx` for desktop and responsive browsers.
 
-### 4. Compact Sheet UX & Smooth Layout Transitions
-- **Decision**: Refactored `components/HabitSheet.tsx` based on modern design standards:
-  - Icon selection moved to a prominent circular preview badge next to the habit name at the top, opening a curated icon dialog modal on tap.
-  - Habit color palette collapsed into a single selected color pill that opens a color swatch modal on demand, dramatically reducing sheet height so inputs never get covered by the virtual keyboard.
-  - When switching between Yes/No (`check`) and Count or Minutes, the Daily Target input smoothly transitions with Reanimated `entering={FadeInDown.duration(200)}` and `exiting={FadeOutUp.duration(150)}` without layout jumps.
+### 4. Native iOS Collapsible Large Title Headers
+- **Decision**: Created [`CollapsibleHeader.tsx`](file:///d:/Projects/habit-tracker/mobile/components/CollapsibleHeader.tsx) wired to `Animated.ScrollView` across Today, Stats, Habits, and Settings:
+  - Renders a prominent, bold iOS large title (34pt) that smoothly collapses into a centered navigation bar title with a translucent glass blur background (`BlurView`) as the user scrolls.
 
-### 5. Gestures, Full Swipe & Live Running Timer
-- **Decision**: Redesigned swipe physics in `components/HabitCard.tsx` following `apple-design` and `emil-design-eng`:
-  - Left swipe drawer reveals **only** Skip and Archive actions.
-  - Right swipe is fully swipeable across the row with direct 1:1 translation, completing the habit upon passing threshold or fling with spring handoff.
-  - For time-based habits (e.g. Gym, Study), integrated an interactive `RunningHabitTimer` modal featuring an animated SVG progress ring, `MM:SS` timer, play/pause controls, and `AppState` background tracking.
+### 5. Minimal Form Design & Native Sheet-over-Sheet UX
+- **Decision**: Refactored [`HabitSheet.tsx`](file:///d:/Projects/habit-tracker/mobile/components/HabitSheet.tsx):
+  - Removed redundant section labels ("Habit Name", "Daily Target") in favor of self-explanatory placeholders and clean segmented pills.
+  - Translucent native blurred sheet backdrop on iOS (`BlurView`).
+  - Sheet-over-sheet presentation for both the centered Icon selector and Color palette.
+  - Native iOS time picker integration using `@react-native-community/datetimepicker` (`display="compact"`).
+
+### 6. Zero Rubber-Band Drag and Direct 1:1 Swipe Physics
+- **Decision**: Eliminated all artificial rubber-band bounce in [`HabitCard.tsx`](file:///d:/Projects/habit-tracker/mobile/components/HabitCard.tsx) and [`habits.tsx`](file:///d:/Projects/habit-tracker/mobile/app/%28tabs%29/habits.tsx):
+  - Left swipe opens Skip and Archive with a firm clamp at -110px.
+  - Right swipe tracks the finger 1:1 across the row and settles with clean linear timing.
+  - Reordering list uses linear layout transitions (`LinearTransition.duration(180)`) without spring oscillation.
+
+### 7. 60fps Smooth Continuous Timer Ring
+- **Decision**: Upgraded [`RunningHabitTimer.tsx`](file:///d:/Projects/habit-tracker/mobile/components/RunningHabitTimer.tsx) to animate SVG stroke offset via Reanimated `AnimatedCircle` with high-frequency interpolation, eliminating visual stuttering.
 
 ### 6. Bulletproof Week-Wise Scrollable Strip
 - **Decision**: Completely refactored `components/WeekStrip.tsx` with a static 41-week timeline anchored to the current calendar week.

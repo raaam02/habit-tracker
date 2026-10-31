@@ -9,18 +9,20 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import Svg, { Circle } from 'react-native-svg';
 import Animated, {
   useSharedValue,
-  useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
-  withSpring,
   Easing,
 } from 'react-native-reanimated';
 import { Habit } from '../types/habit';
 import { useAppTheme } from '../constants/useAppTheme';
-import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET, SPRING_CONFIG } from '../constants/theme';
+import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../constants/theme';
 import { triggerHaptic } from '../services/haptics';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface RunningHabitTimerProps {
   visible: boolean;
@@ -37,75 +39,90 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
   onClose,
   onFinish,
 }) => {
-  const { theme } = useAppTheme();
+  const { theme, isDark } = useAppTheme();
 
   const [seconds, setSeconds] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
 
   const lastTickRef = useRef<number>(Date.now());
-  const progressAnim = useSharedValue(0);
+  const animatedOffset = useSharedValue(0);
 
   const targetMinutes = habit?.target || 30;
   const targetSeconds = Math.max(60, targetMinutes * 60);
 
+  const size = 260;
+  const strokeWidth = 12;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  // Initialize state when timer becomes visible
   useEffect(() => {
     if (visible && habit) {
       const startingSecs = Math.max(0, initialMinutes * 60);
       setSeconds(startingSecs);
       setIsActive(true);
-      setIsFinished(startingSecs >= targetSeconds);
-      progressAnim.value = targetSeconds > 0 ? startingSecs / targetSeconds : 0;
+      const finished = startingSecs >= targetSeconds;
+      setIsFinished(finished);
+
+      const ratio = targetSeconds > 0 ? Math.min(1, startingSecs / targetSeconds) : 0;
+      animatedOffset.value = circumference - ratio * circumference;
       lastTickRef.current = Date.now();
     } else {
       setIsActive(false);
       setSeconds(0);
+      animatedOffset.value = circumference;
     }
-  }, [visible, habit, initialMinutes, targetSeconds]);
+  }, [visible, habit, initialMinutes, targetSeconds, circumference]);
 
-  // Background and live interval timer
+  // High-frequency 60fps clock for smooth fluid ring animation
   useEffect(() => {
     if (!visible || !isActive || isFinished) return;
 
     lastTickRef.current = Date.now();
 
-    const updateTimer = () => {
+    const interval = setInterval(() => {
       const now = Date.now();
-      const deltaMs = now - lastTickRef.current;
-      const deltaSecs = Math.floor(deltaMs / 1000);
+      const deltaSecs = (now - lastTickRef.current) / 1000;
+      const currentTotal = seconds + deltaSecs;
 
-      if (deltaSecs > 0) {
-        setSeconds((prev) => {
-          const next = prev + deltaSecs;
-          const ratio = Math.min(1, next / targetSeconds);
-          progressAnim.value = withTiming(ratio, {
-            duration: 900,
-            easing: Easing.linear,
-          });
+      const progress = Math.min(1, Math.max(0, currentTotal / targetSeconds));
+      // Fluid direct offset update
+      animatedOffset.value = circumference - progress * circumference;
 
-          if (next >= targetSeconds && !isFinished) {
-            setIsFinished(true);
-            triggerHaptic.success();
-          }
-          return next;
-        });
-        lastTickRef.current += deltaSecs * 1000;
+      if (currentTotal >= targetSeconds && !isFinished) {
+        setIsFinished(true);
+        triggerHaptic.success();
       }
-    };
+    }, 50); // 20 updates per second for butter-smooth SVG interpolation
 
-    const interval = setInterval(updateTimer, 1000);
+    // 1-second display ticker
+    const secondTimer = setInterval(() => {
+      setSeconds((prev) => prev + 1);
+      lastTickRef.current = Date.now();
+    }, 1000);
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        updateTimer();
+        const now = Date.now();
+        const delta = Math.floor((now - lastTickRef.current) / 1000);
+        if (delta > 0) {
+          setSeconds((prev) => prev + delta);
+        }
+        lastTickRef.current = Date.now();
       }
     });
 
     return () => {
       clearInterval(interval);
+      clearInterval(secondTimer);
       subscription.remove();
     };
-  }, [visible, isActive, isFinished, targetSeconds]);
+  }, [visible, isActive, isFinished, targetSeconds, circumference, seconds]);
+
+  const animatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: animatedOffset.value,
+  }));
 
   if (!habit) return null;
 
@@ -120,7 +137,10 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
     setSeconds(0);
     setIsFinished(false);
     setIsActive(false);
-    progressAnim.value = withTiming(0, { duration: 300 });
+    animatedOffset.value = withTiming(circumference, {
+      duration: 300,
+      easing: Easing.out(Easing.cubic),
+    });
   };
 
   const handleFinish = () => {
@@ -140,13 +160,6 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
     }
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
-
-  const size = 260;
-  const strokeWidth = 12;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const progressRatio = Math.min(1, Math.max(0, seconds / targetSeconds));
-  const strokeDashoffset = circumference - progressRatio * circumference;
 
   return (
     <Modal
@@ -200,7 +213,7 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
             </Pressable>
           </View>
 
-          {/* Big Progress Ring with live timer */}
+          {/* Big Progress Ring with live continuous timer */}
           <View style={styles.ringWrapper}>
             <Svg width={size} height={size}>
               {/* Background Track */}
@@ -212,15 +225,15 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
                 strokeWidth={strokeWidth}
                 fill="none"
               />
-              {/* Active Progress */}
-              <Circle
+              {/* Active Smooth Animated Progress */}
+              <AnimatedCircle
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
                 stroke={isFinished ? theme.success : habit.color}
                 strokeWidth={strokeWidth}
                 strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
+                animatedProps={animatedProps}
                 strokeLinecap="round"
                 fill="none"
                 transform={`rotate(-90 ${size / 2} ${size / 2})`}
@@ -233,24 +246,21 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
                   styles.timerText,
                   {
                     color: theme.text,
+                    fontVariant: ['tabular-nums'],
                   },
                 ]}
               >
                 {formatTime()}
               </Text>
-              <Text style={[styles.statusLabel, { color: theme.textMuted }]}>
-                {isFinished
-                  ? 'Goal reached! 🎉'
-                  : isActive
-                  ? 'Focus session running'
-                  : 'Paused'}
+              <Text style={[styles.statusLabel, { color: isFinished ? theme.success : theme.textMuted }]}>
+                {isFinished ? 'Goal Reached!' : isActive ? 'In Progress' : 'Paused'}
               </Text>
             </View>
           </View>
 
-          {/* Controls Bar */}
+          {/* Controls */}
           <View style={styles.controlsRow}>
-            {/* Reset Button */}
+            {/* Reset */}
             <Pressable
               onPress={handleReset}
               style={({ pressed }) => [
@@ -260,7 +270,6 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
                   borderColor: theme.border,
                 },
               ]}
-              hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="Reset timer"
             >
@@ -277,19 +286,21 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
                     ? theme.success
                     : habit.color,
                   opacity: pressed ? 0.85 : 1,
+                  transform: [{ scale: pressed ? 0.94 : 1 }],
                 },
               ]}
               accessibilityRole="button"
-              accessibilityLabel={isActive ? 'Pause timer' : 'Start timer'}
+              accessibilityLabel={isActive ? 'Pause' : 'Start'}
             >
               <Ionicons
                 name={isActive ? 'pause' : 'play'}
                 size={28}
                 color="#FFFFFF"
+                style={{ marginLeft: isActive ? 0 : 3 }}
               />
             </Pressable>
 
-            {/* Finish & Log Progress Button */}
+            {/* Finish & Save */}
             <Pressable
               onPress={handleFinish}
               style={({ pressed }) => [
@@ -299,14 +310,13 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
                   borderColor: isFinished ? theme.success : theme.border,
                 },
               ]}
-              hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel="Finish and log habit"
             >
               <Ionicons
                 name="checkmark"
                 size={22}
-                color={isFinished ? theme.success : theme.accent}
+                color={isFinished ? theme.success : theme.text}
               />
             </Pressable>
           </View>
@@ -325,23 +335,23 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 380,
     borderRadius: RADII.sheet,
-    padding: SPACING.xl,
     borderWidth: 1,
+    padding: SPACING.lg,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    elevation: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 20,
   },
   header: {
-    width: '100%',
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.lg,
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: SPACING.md,
   },
   headerLeft: {
     flexDirection: 'row',

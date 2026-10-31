@@ -11,12 +11,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import Animated, {
+  useSharedValue,
+  useAnimatedScrollHandler,
+} from 'react-native-reanimated';
 import { useAppTheme } from '../../constants/useAppTheme';
 import { useHabitStore } from '../../store/habitStore';
 import { ThemePreference } from '../../types/habit';
 import { exportHabitData, pickAndImportData } from '../../services/backup';
 import { syncHabitReminders, triggerTestNotification } from '../../services/notifications';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { CollapsibleHeader } from '../../components/CollapsibleHeader';
 import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../../constants/theme';
 import { triggerHaptic } from '../../services/haptics';
 
@@ -103,21 +108,29 @@ export default function SettingsScreen() {
     router.replace('/onboarding');
   };
 
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
-      <ScrollView
+    <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      {/* Native-style Collapsible iOS Large Title Header */}
+      <CollapsibleHeader
+        title="Settings"
+        subtitle="Preferences, backup, and appearance"
+        scrollY={scrollY}
+      />
+
+      <Animated.ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
       >
-        {/* Title */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
-          <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-            Preferences, backup, and appearance.
-          </Text>
-        </View>
-
         {/* Status Toast */}
         {message && (
           <View style={[styles.toast, { backgroundColor: theme.elevated, borderColor: theme.accent }]}>
@@ -340,7 +353,7 @@ export default function SettingsScreen() {
             Habit Tracker • Expo SDK 58 • Local-First • No Login
           </Text>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Theme-Aware Reset Confirmation Dialog */}
       <ConfirmModal
@@ -353,7 +366,7 @@ export default function SettingsScreen() {
         onConfirm={executeReset}
         onCancel={() => setShowResetModal(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

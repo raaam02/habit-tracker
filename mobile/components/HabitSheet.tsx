@@ -12,16 +12,16 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
   runOnJS,
   FadeInDown,
   FadeOutUp,
-  LinearTransition,
 } from 'react-native-reanimated';
 import { Habit, HabitType } from '../types/habit';
 import { useAppTheme } from '../constants/useAppTheme';
@@ -52,7 +52,7 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
   onClose,
   onSave,
 }) => {
-  const { theme } = useAppTheme();
+  const { theme, isDark } = useAppTheme();
 
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('barbell');
@@ -62,10 +62,15 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
   const [scheduledDays, setScheduledDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [hasReminder, setHasReminder] = useState(false);
   const [reminderTime, setReminderTime] = useState('08:00');
+  const [reminderDate, setReminderDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(8, 0, 0, 0);
+    return d;
+  });
 
-  // Modals for Icon and Color selection
-  const [showIconModal, setShowIconModal] = useState(false);
-  const [showColorModal, setShowColorModal] = useState(false);
+  // Sheet-over-sheet states for Icon and Color selection
+  const [showIconSheet, setShowIconSheet] = useState(false);
+  const [showColorSheet, setShowColorSheet] = useState(false);
 
   const translateY = useSharedValue(0);
 
@@ -79,7 +84,12 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
         setTarget(String(habitToEdit.target));
         setScheduledDays(habitToEdit.scheduledDays);
         setHasReminder(!!habitToEdit.reminderTime);
-        setReminderTime(habitToEdit.reminderTime || '08:00');
+        const timeStr = habitToEdit.reminderTime || '08:00';
+        setReminderTime(timeStr);
+        const [h, m] = timeStr.split(':').map(Number);
+        const d = new Date();
+        d.setHours(isNaN(h) ? 8 : h, isNaN(m) ? 0 : m, 0, 0);
+        setReminderDate(d);
       } else {
         setName('');
         setIcon('barbell');
@@ -89,6 +99,9 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
         setScheduledDays([0, 1, 2, 3, 4, 5, 6]);
         setHasReminder(false);
         setReminderTime('08:00');
+        const d = new Date();
+        d.setHours(8, 0, 0, 0);
+        setReminderDate(d);
       }
       translateY.value = 0;
     }
@@ -103,8 +116,6 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
       'worklet';
       if (e.translationY > 0) {
         translateY.value = e.translationY;
-      } else {
-        translateY.value = e.translationY * 0.15;
       }
     })
     .onEnd((e) => {
@@ -114,7 +125,7 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
           runOnJS(dismissModal)();
         });
       } else {
-        translateY.value = withSpring(0, { damping: 25, stiffness: 220 });
+        translateY.value = withTiming(0, { duration: 160 });
       }
     });
 
@@ -145,6 +156,15 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
     }
   };
 
+  const handleNativeTimeChange = (event: any, selected?: Date) => {
+    if (selected) {
+      setReminderDate(selected);
+      const hours = String(selected.getHours()).padStart(2, '0');
+      const minutes = String(selected.getMinutes()).padStart(2, '0');
+      setReminderTime(`${hours}:${minutes}`);
+    }
+  };
+
   const handleSave = () => {
     if (!name.trim()) return;
     triggerHaptic.success();
@@ -170,14 +190,13 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
   return (
     <Modal
       visible={visible}
-      transparent={Platform.OS !== 'ios'}
-      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'overFullScreen'}
+      transparent
       animationType="slide"
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}
+        style={styles.modalOverlay}
       >
         <Pressable style={styles.backdrop} onPress={onClose} />
 
@@ -185,12 +204,22 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
           style={[
             styles.sheetContainer,
             {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
+              borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
             },
             sheetAnimatedStyle,
           ]}
         >
+          {/* Native Glass Blur Background */}
+          {Platform.OS === 'ios' ? (
+            <BlurView
+              intensity={80}
+              tint={isDark ? 'systemMaterialDark' : 'systemMaterialLight'}
+              style={StyleSheet.absoluteFill}
+            />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.surface }]} />
+          )}
+
           {/* Drag Handle */}
           <GestureDetector gesture={panGesture}>
             <View style={styles.handleContainer}>
@@ -198,7 +227,7 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
             </View>
           </GestureDetector>
 
-          {/* Sheet Header */}
+          {/* Minimal Sheet Header */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: theme.text }]}>
               {habitToEdit ? 'Edit habit' : 'New habit'}
@@ -223,98 +252,87 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* Habit Name & Icon preview row */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
-                Habit name
-              </Text>
-              <View style={styles.nameRow}>
-                <TextInput
-                  style={[
-                    styles.nameInput,
-                    {
-                      color: theme.text,
-                      backgroundColor: theme.elevated,
-                      borderColor: theme.border,
-                    },
-                  ]}
-                  placeholder="e.g. Read 20 pages, Gym workout"
-                  placeholderTextColor={theme.textSubtle}
-                  value={name}
-                  onChangeText={setName}
-                  autoFocus={!habitToEdit}
-                  maxLength={60}
-                />
-                <Pressable
-                  onPress={() => {
-                    triggerHaptic.selection();
-                    setShowIconModal(true);
-                  }}
-                  style={({ pressed }) => [
-                    styles.iconBadgeBtn,
-                    {
-                      backgroundColor: `${color}18`,
-                      borderColor: color,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Change icon"
-                >
-                  <Ionicons name={icon as any} size={22} color={color} />
-                  <View style={[styles.iconEditDot, { backgroundColor: color }]}>
-                    <Ionicons name="pencil" size={8} color="#FFFFFF" />
-                  </View>
-                </Pressable>
-              </View>
+            {/* Minimal Habit Name & Icon preview row (No redundant label) */}
+            <View style={styles.nameRow}>
+              <TextInput
+                style={[
+                  styles.nameInput,
+                  {
+                    color: theme.text,
+                    backgroundColor: theme.elevated,
+                    borderColor: theme.border,
+                  },
+                ]}
+                placeholder="Habit name (e.g. Read 20 pages)"
+                placeholderTextColor={theme.textSubtle}
+                value={name}
+                onChangeText={setName}
+                autoFocus={!habitToEdit}
+                maxLength={60}
+              />
+              <Pressable
+                onPress={() => {
+                  triggerHaptic.selection();
+                  setShowIconSheet(true);
+                }}
+                style={({ pressed }) => [
+                  styles.iconBadgeBtn,
+                  {
+                    backgroundColor: `${color}18`,
+                    borderColor: color,
+                    opacity: pressed ? 0.8 : 1,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Choose icon"
+              >
+                <Ionicons name={icon as any} size={22} color={color} />
+                <View style={[styles.iconEditDot, { backgroundColor: color }]}>
+                  <Ionicons name="pencil" size={8} color="#FFFFFF" />
+                </View>
+              </Pressable>
             </View>
 
-            {/* Habit Type Segmented Control */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>Type</Text>
-              <View style={[styles.segmentContainer, { backgroundColor: theme.elevated }]}>
-                {(['check', 'count', 'minutes'] as HabitType[]).map((t) => {
-                  const isSelected = type === t;
-                  return (
-                    <Pressable
-                      key={t}
-                      onPress={() => handleSelectType(t)}
+            {/* Type Segmented Control */}
+            <View style={[styles.segmentContainer, { backgroundColor: theme.elevated }]}>
+              {(['check', 'count', 'minutes'] as HabitType[]).map((t) => {
+                const isSelected = type === t;
+                return (
+                  <Pressable
+                    key={t}
+                    onPress={() => handleSelectType(t)}
+                    style={[
+                      styles.segmentButton,
+                      {
+                        backgroundColor: isSelected ? theme.accent : 'transparent',
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={t}
+                  >
+                    <Text
                       style={[
-                        styles.segmentButton,
+                        styles.segmentText,
                         {
-                          backgroundColor: isSelected ? theme.accent : 'transparent',
+                          color: isSelected ? '#FFFFFF' : theme.textMuted,
+                          fontWeight: isSelected ? '700' : '500',
                         },
                       ]}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Type ${t}`}
                     >
-                      <Text
-                        style={[
-                          styles.segmentText,
-                          {
-                            color: isSelected ? '#FFFFFF' : theme.textMuted,
-                            fontWeight: isSelected ? '700' : '500',
-                          },
-                        ]}
-                      >
-                        {t === 'check' ? 'Yes / No' : t === 'count' ? 'Count' : 'Minutes'}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                      {t === 'check' ? 'Yes / No' : t === 'count' ? 'Count' : 'Minutes'}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
 
-            {/* Target Value with Smooth Emil Kowalski Layout Transition */}
+            {/* Target Value with Smooth Transitions (No redundant outer header) */}
             {type !== 'check' && (
               <Animated.View
                 entering={FadeInDown.duration(200)}
                 exiting={FadeOutUp.duration(150)}
-                style={styles.section}
+                style={styles.fieldWrap}
               >
-                <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
-                  Daily target ({type === 'minutes' ? 'minutes' : 'times'})
-                </Text>
                 <TextInput
                   style={[
                     styles.textInput,
@@ -324,6 +342,8 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
                       borderColor: theme.border,
                     },
                   ]}
+                  placeholder={`Daily target (${type === 'minutes' ? 'minutes' : 'times'})`}
+                  placeholderTextColor={theme.textSubtle}
                   keyboardType="number-pad"
                   value={target}
                   onChangeText={setTarget}
@@ -332,81 +352,73 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
               </Animated.View>
             )}
 
-            {/* Color Selector Pill (Opens Palette Modal) */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>Color</Text>
-              <Pressable
-                onPress={() => {
-                  triggerHaptic.selection();
-                  setShowColorModal(true);
-                }}
-                style={({ pressed }) => [
-                  styles.colorPickerButton,
-                  {
-                    backgroundColor: theme.elevated,
-                    borderColor: theme.border,
-                    opacity: pressed ? 0.85 : 1,
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Choose color"
-              >
-                <View style={styles.colorButtonLeft}>
-                  <View style={[styles.selectedColorCircle, { backgroundColor: color }]} />
-                  <Text style={[styles.colorButtonText, { color: theme.text }]}>
-                    {currentColorObj.name}
-                  </Text>
-                </View>
-                <View style={styles.colorButtonRight}>
-                  <Text style={[styles.colorChangeLabel, { color: theme.accent }]}>Change</Text>
-                  <Ionicons name="chevron-forward" size={15} color={theme.accent} />
-                </View>
-              </Pressable>
-            </View>
+            {/* Minimal Color Selector Pill (Opens sheet over sheet) */}
+            <Pressable
+              onPress={() => {
+                triggerHaptic.selection();
+                setShowColorSheet(true);
+              }}
+              style={({ pressed }) => [
+                styles.colorPickerButton,
+                {
+                  backgroundColor: theme.elevated,
+                  borderColor: theme.border,
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Choose color"
+            >
+              <View style={styles.colorButtonLeft}>
+                <View style={[styles.selectedColorCircle, { backgroundColor: color }]} />
+                <Text style={[styles.colorButtonText, { color: theme.text }]}>
+                  {currentColorObj.name}
+                </Text>
+              </View>
+              <View style={styles.colorButtonRight}>
+                <Text style={[styles.colorChangeLabel, { color: theme.accent }]}>Change</Text>
+                <Ionicons name="chevron-forward" size={15} color={theme.accent} />
+              </View>
+            </Pressable>
 
-            {/* Scheduled Days */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
-                Scheduled days
-              </Text>
-              <View style={styles.daysRow}>
-                {WEEKDAY_NAMES.map((d) => {
-                  const isScheduled = scheduledDays.includes(d.day);
-                  return (
-                    <Pressable
-                      key={d.day}
-                      onPress={() => handleToggleDay(d.day)}
+            {/* Scheduled Days Pills */}
+            <View style={styles.daysRow}>
+              {WEEKDAY_NAMES.map((d) => {
+                const isScheduled = scheduledDays.includes(d.day);
+                return (
+                  <Pressable
+                    key={d.day}
+                    onPress={() => handleToggleDay(d.day)}
+                    style={[
+                      styles.dayToggle,
+                      {
+                        backgroundColor: isScheduled ? color : theme.elevated,
+                        borderColor: isScheduled ? color : theme.border,
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={d.label}
+                  >
+                    <Text
                       style={[
-                        styles.dayToggle,
+                        styles.dayToggleText,
                         {
-                          backgroundColor: isScheduled ? color : theme.elevated,
-                          borderColor: isScheduled ? color : theme.border,
+                          color: isScheduled ? '#FFFFFF' : theme.textMuted,
+                          fontWeight: isScheduled ? '700' : '500',
                         },
                       ]}
-                      accessibilityRole="button"
-                      accessibilityLabel={d.label}
                     >
-                      <Text
-                        style={[
-                          styles.dayToggleText,
-                          {
-                            color: isScheduled ? '#FFFFFF' : theme.textMuted,
-                            fontWeight: isScheduled ? '700' : '500',
-                          },
-                        ]}
-                      >
-                        {d.short}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                      {d.short}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
 
-            {/* Daily Reminder Setting */}
-            <View style={[styles.section, styles.reminderRow]}>
+            {/* Daily Reminder Setting with Native Picker on iOS */}
+            <View style={styles.reminderRow}>
               <View style={styles.reminderLabelWrap}>
-                <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 0 }]}>
+                <Text style={[styles.reminderTitle, { color: theme.text }]}>
                   Daily reminder
                 </Text>
                 <Text style={[styles.reminderSubtitle, { color: theme.textMuted }]}>
@@ -428,26 +440,38 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
               <Animated.View
                 entering={FadeInDown.duration(200)}
                 exiting={FadeOutUp.duration(150)}
-                style={styles.section}
+                style={styles.timePickerContainer}
               >
-                <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>
-                  Time (HH:MM)
-                </Text>
-                <TextInput
-                  style={[
-                    styles.textInput,
-                    {
-                      color: theme.text,
-                      backgroundColor: theme.elevated,
-                      borderColor: theme.border,
-                    },
-                  ]}
-                  placeholder="08:00"
-                  placeholderTextColor={theme.textSubtle}
-                  value={reminderTime}
-                  onChangeText={setReminderTime}
-                  maxLength={5}
-                />
+                {Platform.OS === 'ios' ? (
+                  <View style={styles.iosPickerRow}>
+                    <Text style={[styles.timeLabel, { color: theme.textMuted }]}>
+                      Reminder time
+                    </Text>
+                    <DateTimePicker
+                      value={reminderDate}
+                      mode="time"
+                      display="compact"
+                      themeVariant={isDark ? 'dark' : 'light'}
+                      onChange={handleNativeTimeChange}
+                    />
+                  </View>
+                ) : (
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      {
+                        color: theme.text,
+                        backgroundColor: theme.elevated,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                    placeholder="Reminder time (HH:MM)"
+                    placeholderTextColor={theme.textSubtle}
+                    value={reminderTime}
+                    onChangeText={setReminderTime}
+                    maxLength={5}
+                  />
+                )}
               </Animated.View>
             )}
 
@@ -481,38 +505,51 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
         </Animated.View>
       </KeyboardAvoidingView>
 
-      {/* Icon Picker Dialog Modal */}
+      {/* Sheet Over Sheet: Icon Picker Sheet */}
       <Modal
-        visible={showIconModal}
+        visible={showIconSheet}
         transparent
-        animationType="fade"
-        onRequestClose={() => setShowIconModal(false)}
+        animationType="slide"
+        onRequestClose={() => setShowIconSheet(false)}
       >
-        <View style={[styles.subModalOverlay, { backgroundColor: theme.overlay }]}>
-          <Pressable style={styles.backdrop} onPress={() => setShowIconModal(false)} />
+        <View style={styles.childSheetOverlay}>
+          <Pressable style={styles.backdrop} onPress={() => setShowIconSheet(false)} />
           <View
             style={[
-              styles.subModalCard,
+              styles.childSheetContainer,
               {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
               },
             ]}
           >
-            <View style={styles.subModalHeader}>
-              <Text style={[styles.subModalTitle, { color: theme.text }]}>Choose icon</Text>
+            {Platform.OS === 'ios' ? (
+              <BlurView
+                intensity={90}
+                tint={isDark ? 'systemMaterialDark' : 'systemMaterialLight'}
+                style={StyleSheet.absoluteFill}
+              />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.surface }]} />
+            )}
+
+            <View style={styles.handleContainer}>
+              <View style={[styles.handleBar, { backgroundColor: theme.borderLight }]} />
+            </View>
+
+            <View style={styles.childSheetHeader}>
+              <Text style={[styles.childSheetTitle, { color: theme.text }]}>Choose icon</Text>
               <Pressable
-                onPress={() => setShowIconModal(false)}
+                onPress={() => setShowIconSheet(false)}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel="Close icon picker"
               >
-                <Ionicons name="close" size={20} color={theme.textMuted} />
+                <Ionicons name="close" size={22} color={theme.textMuted} />
               </Pressable>
             </View>
 
-            <ScrollView style={styles.iconGridScroll} showsVerticalScrollIndicator={false}>
-              <View style={styles.iconGrid}>
+            <ScrollView style={styles.iconScroll} showsVerticalScrollIndicator={false}>
+              <View style={styles.iconCenteredGrid}>
                 {CURATED_ICONS.map((iconName) => {
                   const isSelected = icon === iconName;
                   return (
@@ -521,7 +558,7 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
                       onPress={() => {
                         triggerHaptic.selection();
                         setIcon(iconName);
-                        setShowIconModal(false);
+                        setShowIconSheet(false);
                       }}
                       style={({ pressed }) => [
                         styles.iconGridItem,
@@ -535,11 +572,11 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
                         },
                       ]}
                       accessibilityRole="button"
-                      accessibilityLabel={`Select ${iconName}`}
+                      accessibilityLabel={iconName}
                     >
                       <Ionicons
                         name={iconName as any}
-                        size={22}
+                        size={24}
                         color={isSelected ? color : theme.text}
                       />
                     </Pressable>
@@ -551,33 +588,46 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
         </View>
       </Modal>
 
-      {/* Color Picker Dialog Modal */}
+      {/* Sheet Over Sheet: Color Picker Sheet */}
       <Modal
-        visible={showColorModal}
+        visible={showColorSheet}
         transparent
-        animationType="fade"
-        onRequestClose={() => setShowColorModal(false)}
+        animationType="slide"
+        onRequestClose={() => setShowColorSheet(false)}
       >
-        <View style={[styles.subModalOverlay, { backgroundColor: theme.overlay }]}>
-          <Pressable style={styles.backdrop} onPress={() => setShowColorModal(false)} />
+        <View style={styles.childSheetOverlay}>
+          <Pressable style={styles.backdrop} onPress={() => setShowColorSheet(false)} />
           <View
             style={[
-              styles.subModalCard,
+              styles.childSheetContainer,
               {
-                backgroundColor: theme.surface,
-                borderColor: theme.border,
+                borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
               },
             ]}
           >
-            <View style={styles.subModalHeader}>
-              <Text style={[styles.subModalTitle, { color: theme.text }]}>Choose color</Text>
+            {Platform.OS === 'ios' ? (
+              <BlurView
+                intensity={90}
+                tint={isDark ? 'systemMaterialDark' : 'systemMaterialLight'}
+                style={StyleSheet.absoluteFill}
+              />
+            ) : (
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.surface }]} />
+            )}
+
+            <View style={styles.handleContainer}>
+              <View style={[styles.handleBar, { backgroundColor: theme.borderLight }]} />
+            </View>
+
+            <View style={styles.childSheetHeader}>
+              <Text style={[styles.childSheetTitle, { color: theme.text }]}>Choose color</Text>
               <Pressable
-                onPress={() => setShowColorModal(false)}
+                onPress={() => setShowColorSheet(false)}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel="Close color picker"
               >
-                <Ionicons name="close" size={20} color={theme.textMuted} />
+                <Ionicons name="close" size={22} color={theme.textMuted} />
               </Pressable>
             </View>
 
@@ -590,7 +640,7 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
                     onPress={() => {
                       triggerHaptic.selection();
                       setColor(c.hex);
-                      setShowColorModal(false);
+                      setShowColorSheet(false);
                     }}
                     style={({ pressed }) => [
                       styles.colorChoiceRow,
@@ -601,7 +651,7 @@ export const HabitSheet: React.FC<HabitSheetProps> = ({
                       },
                     ]}
                     accessibilityRole="button"
-                    accessibilityLabel={`Choose ${c.name}`}
+                    accessibilityLabel={c.name}
                   >
                     <View style={[styles.colorSwatchCircle, { backgroundColor: c.hex }]}>
                       {isSelected && (
@@ -634,15 +684,17 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   sheetContainer: {
     width: '100%',
-    maxHeight: '90%',
+    maxHeight: '92%',
     borderTopLeftRadius: RADII.sheet,
     borderTopRightRadius: RADII.sheet,
     borderTopWidth: 1,
     paddingHorizontal: SPACING.base,
     paddingBottom: SPACING.xl,
+    overflow: 'hidden',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.25,
@@ -663,7 +715,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: SPACING.xs,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
   },
   title: {
     ...TYPOGRAPHY.title2,
@@ -682,15 +734,10 @@ const styles = StyleSheet.create({
   },
   formScrollContent: {
     paddingBottom: SPACING.lg,
+    gap: SPACING.md,
   },
-  section: {
-    marginBottom: SPACING.md,
-  },
-  sectionTitle: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: SPACING.xs,
+  fieldWrap: {
+    width: '100%',
   },
   nameRow: {
     flexDirection: 'row',
@@ -818,13 +865,30 @@ const styles = StyleSheet.create({
   reminderLabelWrap: {
     flex: 1,
   },
+  reminderTitle: {
+    ...TYPOGRAPHY.headline,
+    fontSize: 15,
+  },
   reminderSubtitle: {
     ...TYPOGRAPHY.caption,
     fontSize: 12,
     marginTop: 2,
   },
+  timePickerContainer: {
+    width: '100%',
+  },
+  iosPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.xs,
+  },
+  timeLabel: {
+    ...TYPOGRAPHY.body,
+    fontSize: 14,
+  },
   saveButton: {
-    marginTop: SPACING.md,
+    marginTop: SPACING.xs,
     paddingVertical: SPACING.md,
     borderRadius: RADII.md,
     alignItems: 'center',
@@ -836,49 +900,53 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  subModalOverlay: {
+
+  /* Sheet over sheet container styles */
+  childSheetOverlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.base,
+    justifyContent: 'flex-end',
   },
-  subModalCard: {
+  childSheetContainer: {
     width: '100%',
-    maxWidth: 400,
-    maxHeight: '80%',
-    borderRadius: RADII.card,
-    borderWidth: 1,
-    padding: SPACING.base,
+    maxHeight: '85%',
+    borderTopLeftRadius: RADII.sheet,
+    borderTopRightRadius: RADII.sheet,
+    borderTopWidth: 1,
+    paddingHorizontal: SPACING.base,
+    paddingBottom: SPACING.xl,
+    overflow: 'hidden',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.3,
     shadowRadius: 20,
-    elevation: 16,
+    elevation: 25,
   },
-  subModalHeader: {
+  childSheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: SPACING.xs,
     marginBottom: SPACING.md,
   },
-  subModalTitle: {
+  childSheetTitle: {
     ...TYPOGRAPHY.title2,
     fontSize: 18,
     fontWeight: '700',
   },
-  iconGridScroll: {
-    maxHeight: 340,
+  iconScroll: {
+    maxHeight: 380,
   },
-  iconGrid: {
+  iconCenteredGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.sm,
-    justifyContent: 'space-between',
-    paddingBottom: SPACING.sm,
+    gap: SPACING.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
   },
   iconGridItem: {
-    width: '22%',
-    aspectRatio: 1,
+    width: 60,
+    height: 60,
     borderRadius: RADII.md,
     borderWidth: 1.5,
     alignItems: 'center',
@@ -889,6 +957,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: SPACING.sm,
     justifyContent: 'space-between',
+    paddingBottom: SPACING.md,
   },
   colorChoiceRow: {
     width: '48%',

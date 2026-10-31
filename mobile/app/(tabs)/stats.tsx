@@ -5,14 +5,18 @@ import {
   ScrollView,
   Pressable,
   StyleSheet,
-  SafeAreaView,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue,
+  useAnimatedScrollHandler,
+} from 'react-native-reanimated';
 import { useAppTheme } from '../../constants/useAppTheme';
 import { useHabitStore } from '../../store/habitStore';
 import { Habit } from '../../types/habit';
 import { computeStreakStats } from '../../utils/streaks';
+import { CollapsibleHeader } from '../../components/CollapsibleHeader';
 import { YearlyHeatmap } from '../../components/YearlyHeatmap';
 import { WeeklyBarChart } from '../../components/WeeklyBarChart';
 import { HabitDetailModal } from '../../components/HabitDetailModal';
@@ -69,20 +73,29 @@ export default function StatsScreen() {
     };
   }, [activeHabits, logs, today]);
 
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
-      <ScrollView
+    <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      {/* Native-style Collapsible iOS Large Title Header */}
+      <CollapsibleHeader
+        title="Analytics"
+        subtitle="Consistency compounds over time"
+        scrollY={scrollY}
+      />
+
+      <Animated.ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
       >
-        {/* Title */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Analytics & Streaks</Text>
-          <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-            Consistency compounds over time.
-          </Text>
-        </View>
 
         {activeHabits.length === 0 ? (
           <EmptyState
@@ -221,7 +234,7 @@ export default function StatsScreen() {
             })}
           </>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Habit Detail Modal */}
       <HabitDetailModal
@@ -249,7 +262,7 @@ export default function StatsScreen() {
           }
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

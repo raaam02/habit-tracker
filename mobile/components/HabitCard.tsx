@@ -82,22 +82,19 @@ export const HabitCard: React.FC<HabitCardProps> = ({
     onComplete();
   };
 
-  // Fluid pan gesture:
-  // - Full swipe right across row to complete
-  // - Left swipe reveals only Skip & Archive (drawer width 110px)
+  // Fluid direct swipe gesture:
+  // - Direct 1:1 right swipe across row to complete
+  // - Direct 1:1 left swipe to reveal Skip & Archive (clamped cleanly at -110)
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
     .onUpdate((event) => {
       'worklet';
       if (event.translationX > 0) {
-        // Direct 1:1 right swipe across row
+        // Direct 1:1 tracking
         translateX.value = event.translationX;
       } else {
-        // Left swipe drawer resistance past -120px
-        translateX.value =
-          event.translationX < -120
-            ? -120 + (event.translationX + 120) * 0.2
-            : event.translationX;
+        // Clean direct left drawer opening, clamped at -110px without bouncy overstretch
+        translateX.value = Math.max(-110, event.translationX);
       }
     })
     .onEnd((event) => {
@@ -106,21 +103,15 @@ export const HabitCard: React.FC<HabitCardProps> = ({
       const velocity = event.velocityX;
 
       if (swipeDistance > 110 || velocity > 450) {
-        // Full swipe right threshold met -> complete habit
+        // Complete habit on full swipe
         runOnJS(fireComplete)();
-        translateX.value = settings.reduceMotion
-          ? withTiming(0, { duration: 150 })
-          : withSpring(0, { damping: 24, stiffness: 220, velocity });
-      } else if (swipeDistance < -60 || velocity < -400) {
-        // Snap open left drawer (Skip & Archive only, ~110px width)
-        translateX.value = settings.reduceMotion
-          ? withTiming(-110, { duration: 150 })
-          : withSpring(-110, { damping: 24, stiffness: 220, velocity });
+        translateX.value = withTiming(0, { duration: 160 });
+      } else if (swipeDistance < -55 || velocity < -350) {
+        // Snap open left drawer cleanly
+        translateX.value = withTiming(-110, { duration: 160 });
       } else {
-        // Smoothly settle back
-        translateX.value = settings.reduceMotion
-          ? withTiming(0, { duration: 150 })
-          : withSpring(0, { damping: 24, stiffness: 220, velocity });
+        // Crisp smooth settle
+        translateX.value = withTiming(0, { duration: 160 });
       }
     });
 

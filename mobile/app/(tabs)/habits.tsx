@@ -15,6 +15,7 @@ import Animated, {
   withTiming,
   runOnJS,
   LinearTransition,
+  useAnimatedScrollHandler,
 } from 'react-native-reanimated';
 import { useAppTheme } from '../../constants/useAppTheme';
 import { useHabitStore } from '../../store/habitStore';
@@ -22,6 +23,7 @@ import { Habit } from '../../types/habit';
 import { HabitSheet } from '../../components/HabitSheet';
 import { HabitDetailModal } from '../../components/HabitDetailModal';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { CollapsibleHeader } from '../../components/CollapsibleHeader';
 import { EmptyState } from '../../components/EmptyState';
 import { SPACING, RADII, TYPOGRAPHY } from '../../constants/theme';
 import { triggerHaptic } from '../../services/haptics';
@@ -92,7 +94,7 @@ const DraggableHabitItem: React.FC<DraggableHabitItemProps> = ({
 
   return (
     <Animated.View
-      layout={LinearTransition.springify().damping(24).stiffness(240)}
+      layout={LinearTransition.duration(180)}
       style={[
         styles.habitCard,
         {
@@ -204,94 +206,102 @@ export default function HabitsScreen() {
     }
   };
 
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
+  const newHabitAction = (
+    <Pressable
+      onPress={() => {
+        triggerHaptic.light();
+        setEditingHabit(null);
+        setSheetVisible(true);
+      }}
+      style={({ pressed }) => [
+        styles.addBtn,
+        { backgroundColor: pressed ? theme.accentMuted : theme.accent },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel="Add new habit"
+    >
+      <Ionicons name="add" size={18} color="#FFFFFF" />
+      <Text style={styles.addBtnText}>New habit</Text>
+    </Pressable>
+  );
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={[styles.title, { color: theme.text }]}>Habits</Text>
-            <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-              {activeHabits.length} active • {archivedHabits.length} archived
-            </Text>
+    <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
+      {/* Native-style Collapsible iOS Large Title Header */}
+      <CollapsibleHeader
+        title="Habits"
+        subtitle={`${activeHabits.length} active • ${archivedHabits.length} archived`}
+        scrollY={scrollY}
+        rightAction={newHabitAction}
+      />
+
+      <Animated.ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+      >
+        <View style={styles.container}>
+          {/* Tab switch */}
+          <View style={[styles.tabBar, { backgroundColor: theme.elevated }]}>
+            <Pressable
+              onPress={() => {
+                triggerHaptic.selection();
+                setActiveTab('active');
+              }}
+              style={[
+                styles.tabBtn,
+                {
+                  backgroundColor: activeTab === 'active' ? theme.accent : 'transparent',
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  {
+                    color: activeTab === 'active' ? '#FFFFFF' : theme.textMuted,
+                    fontWeight: activeTab === 'active' ? '700' : '500',
+                  },
+                ]}
+              >
+                Active ({activeHabits.length})
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                triggerHaptic.selection();
+                setActiveTab('archived');
+              }}
+              style={[
+                styles.tabBtn,
+                {
+                  backgroundColor: activeTab === 'archived' ? theme.accent : 'transparent',
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  {
+                    color: activeTab === 'archived' ? '#FFFFFF' : theme.textMuted,
+                    fontWeight: activeTab === 'archived' ? '700' : '500',
+                  },
+                ]}
+              >
+                Archived ({archivedHabits.length})
+              </Text>
+            </Pressable>
           </View>
-          <Pressable
-            onPress={() => {
-              triggerHaptic.light();
-              setEditingHabit(null);
-              setSheetVisible(true);
-            }}
-            style={({ pressed }) => [
-              styles.addBtn,
-              { backgroundColor: pressed ? theme.accentMuted : theme.accent },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Add new habit"
-          >
-            <Ionicons name="add" size={18} color="#FFFFFF" />
-            <Text style={styles.addBtnText}>New habit</Text>
-          </Pressable>
-        </View>
-
-        {/* Tab switch */}
-        <View style={[styles.tabBar, { backgroundColor: theme.elevated }]}>
-          <Pressable
-            onPress={() => {
-              triggerHaptic.selection();
-              setActiveTab('active');
-            }}
-            style={[
-              styles.tabBtn,
-              {
-                backgroundColor: activeTab === 'active' ? theme.accent : 'transparent',
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.tabBtnText,
-                {
-                  color: activeTab === 'active' ? '#FFFFFF' : theme.textMuted,
-                  fontWeight: activeTab === 'active' ? '700' : '500',
-                },
-              ]}
-            >
-              Active ({activeHabits.length})
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              triggerHaptic.selection();
-              setActiveTab('archived');
-            }}
-            style={[
-              styles.tabBtn,
-              {
-                backgroundColor: activeTab === 'archived' ? theme.accent : 'transparent',
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.tabBtnText,
-                {
-                  color: activeTab === 'archived' ? '#FFFFFF' : theme.textMuted,
-                  fontWeight: activeTab === 'archived' ? '700' : '500',
-                },
-              ]}
-            >
-              Archived ({archivedHabits.length})
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* List */}
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
           {activeTab === 'active' && (
             <>
               {activeHabits.length === 0 ? (
@@ -395,8 +405,8 @@ export default function HabitsScreen() {
               )}
             </>
           )}
-        </ScrollView>
-      </View>
+        </View>
+      </Animated.ScrollView>
 
       {/* Add / Edit Sheet */}
       <HabitSheet
@@ -436,7 +446,7 @@ export default function HabitsScreen() {
         }}
         onCancel={() => setHabitToDelete(null)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

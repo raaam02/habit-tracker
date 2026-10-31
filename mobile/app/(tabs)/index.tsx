@@ -10,7 +10,11 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { LinearTransition } from 'react-native-reanimated';
+import Animated, {
+  LinearTransition,
+  useSharedValue,
+  useAnimatedScrollHandler,
+} from 'react-native-reanimated';
 import { useAppTheme } from '../../constants/useAppTheme';
 import { useHabitStore } from '../../store/habitStore';
 import { Habit, HabitLog } from '../../types/habit';
@@ -21,6 +25,7 @@ import {
   getTodayDateString,
 } from '../../utils/date';
 import { computeStreakStats, isDayCompleted, isDayScheduled } from '../../utils/streaks';
+import { CollapsibleHeader } from '../../components/CollapsibleHeader';
 import { WeekStrip } from '../../components/WeekStrip';
 import { ProgressRing } from '../../components/ProgressRing';
 import { HabitCard } from '../../components/HabitCard';
@@ -111,17 +116,52 @@ export default function TodayScreen() {
     return 'Good evening';
   }, []);
 
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
+  const todayPillAction = !isTodayDate(selectedDate) ? (
+    <Pressable
+      onPress={() => {
+        triggerHaptic.light();
+        jumpToToday();
+      }}
+      style={({ pressed }) => [
+        styles.todayPill,
+        { backgroundColor: pressed ? theme.surfaceHighlight : theme.accentMuted },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel="Jump to today"
+    >
+      <Ionicons name="return-down-back" size={13} color={theme.accent} />
+      <Text style={[styles.todayPillText, { color: theme.accent }]}>Today</Text>
+    </Pressable>
+  ) : null;
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <Celebration
         visible={showCelebration}
         onDismiss={() => setShowCelebration(false)}
       />
 
-      <ScrollView
+      {/* Native-style Collapsible iOS Large Title Header */}
+      <CollapsibleHeader
+        title={formatHeaderDate(selectedDate)}
+        subtitle={userName ? `${greeting}, ${userName}` : undefined}
+        scrollY={scrollY}
+        rightAction={todayPillAction}
+      />
+
+      <Animated.ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={false}
@@ -133,38 +173,6 @@ export default function TodayScreen() {
           />
         }
       >
-        {/* Date & Personalized Header */}
-        <View style={styles.headerRow}>
-          <View style={styles.dateCol}>
-            {userName ? (
-              <Text style={[styles.greetingText, { color: theme.textMuted }]}>
-                {greeting}, {userName}
-              </Text>
-            ) : null}
-            <Text style={[styles.dateTitle, { color: theme.text }]}>
-              {formatHeaderDate(selectedDate)}
-            </Text>
-          </View>
-
-          {!isTodayDate(selectedDate) && (
-            <Pressable
-              onPress={() => {
-                triggerHaptic.light();
-                jumpToToday();
-              }}
-              style={({ pressed }) => [
-                styles.todayPill,
-                { backgroundColor: pressed ? theme.surfaceHighlight : theme.accentMuted },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Jump to today"
-            >
-              <Ionicons name="return-down-back" size={13} color={theme.accent} />
-              <Text style={[styles.todayPillText, { color: theme.accent }]}>Today</Text>
-            </Pressable>
-          )}
-        </View>
-
         {/* Week-wise Horizontally Scrollable Strip */}
         <WeekStrip selectedDate={selectedDate} onSelectDate={setSelectedDate} />
 
@@ -254,7 +262,7 @@ export default function TodayScreen() {
             })}
           </Animated.View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* 5-second Undo Toast */}
       <Snackbar />
@@ -310,7 +318,7 @@ export default function TodayScreen() {
           setSheetVisible(true);
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
