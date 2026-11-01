@@ -3,7 +3,7 @@ import { View, StyleSheet, Platform } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../constants/useAppTheme';
 import { useHabitStore } from '../store/habitStore';
 import { syncHabitReminders } from '../services/notifications';
@@ -79,7 +79,7 @@ function AppShell() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
-      <SafeAreaProvider>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <AppShell />
       </SafeAreaProvider>
     </GestureHandlerRootView>

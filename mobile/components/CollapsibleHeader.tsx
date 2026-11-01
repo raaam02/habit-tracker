@@ -53,7 +53,7 @@ export const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({
   }
 
   // iOS / Web Native Collapsible Header
-  const topInset = insets.top;
+  const topInset = Platform.OS === 'ios' ? (insets.top > 0 ? insets.top : 47) : insets.top;
   const navBarHeight = 44;
 
   // Mini navigation bar title appears smoothly as user scrolls past large title
@@ -160,7 +160,15 @@ export const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({
       </View>
 
       {/* Large Title Header rendered once inline at top of content */}
-      <Animated.View style={[styles.largeTitleContainer, largeTitleAnimatedStyle]}>
+      <Animated.View
+        style={[
+          styles.largeTitleContainer,
+          {
+            paddingTop: Platform.OS === 'ios' ? topInset + 8 : SPACING.xs,
+          },
+          largeTitleAnimatedStyle,
+        ]}
+      >
         <View style={styles.largeTitleRow}>
           <View style={styles.titleCol}>
             {subtitle ? (
@@ -223,7 +231,6 @@ const styles = StyleSheet.create({
   },
   largeTitleContainer: {
     paddingHorizontal: SPACING.base,
-    paddingTop: Platform.OS === 'ios' ? 12 : SPACING.xs,
     paddingBottom: SPACING.xs,
   },
   largeTitleRow: {
