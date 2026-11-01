@@ -8,8 +8,28 @@ export default function NativeTabLayout() {
 
   return (
     <NativeTabs
+      backgroundColor={theme.surface}
       tintColor={theme.accent}
       minimizeBehavior="onScrollDown"
+      labelVisibilityMode="labeled"
+      indicatorColor={isDark ? 'rgba(99, 102, 241, 0.22)' : 'rgba(99, 102, 241, 0.16)'}
+      rippleColor={isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)'}
+      iconColor={{
+        default: theme.textMuted,
+        selected: theme.accent,
+      }}
+      labelStyle={{
+        default: {
+          color: theme.textMuted,
+          fontSize: 11,
+          fontWeight: '500',
+        },
+        selected: {
+          color: theme.accent,
+          fontSize: 11,
+          fontWeight: '700',
+        },
+      }}
     >
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon sf="checkmark.circle" md="check_box" />

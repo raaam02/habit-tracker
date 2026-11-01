@@ -13,9 +13,11 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  withSpring,
   runOnJS,
   LinearTransition,
   useAnimatedScrollHandler,
+  SharedValue,
 } from 'react-native-reanimated';
 import { useAppTheme } from '../../constants/useAppTheme';
 import { useHabitStore } from '../../store/habitStore';
@@ -29,11 +31,17 @@ import { SPACING, RADII, TYPOGRAPHY } from '../../constants/theme';
 import { triggerHaptic } from '../../services/haptics';
 
 const ROW_HEIGHT = 68;
+const GAP = SPACING.sm;
+const SLOT_HEIGHT = ROW_HEIGHT + GAP;
 
 interface DraggableHabitItemProps {
   habit: Habit;
   index: number;
   total: number;
+  activeDragIndex: SharedValue<number>;
+  currentHoverIndex: SharedValue<number>;
+  dragTranslationY: SharedValue<number>;
+  isPressing: SharedValue<boolean>;
   onReorder: (fromIndex: number, toIndex: number) => void;
   onPress: () => void;
   onEdit: () => void;
@@ -44,53 +52,118 @@ const DraggableHabitItem: React.FC<DraggableHabitItemProps> = ({
   habit,
   index,
   total,
+  activeDragIndex,
+  currentHoverIndex,
+  dragTranslationY,
+  isPressing,
   onReorder,
   onPress,
   onEdit,
   onArchive,
 }) => {
   const { theme } = useAppTheme();
-  const translateY = useSharedValue(0);
-  const isDragging = useSharedValue(false);
 
-  // Direct 1:1 drag gesture without rubber-band oscillation
+  // Instant tactile feedback on handle touch and real-time live slot displacement
   const dragGesture = Gesture.Pan()
-    .onStart(() => {
+    .onBegin(() => {
       'worklet';
-      isDragging.value = true;
-      runOnJS(triggerHaptic.medium)();
+      activeDragIndex.value = index;
+      currentHoverIndex.value = index;
+      dragTranslationY.value = 0;
+      isPressing.value = true;
+      runOnJS(triggerHaptic.selection)();
     })
     .onUpdate((event) => {
       'worklet';
-      translateY.value = event.translationY;
+      dragTranslationY.value = event.translationY;
+      const moveSlots = Math.round(event.translationY / SLOT_HEIGHT);
+      const target = Math.max(0, Math.min(total - 1, index + moveSlots));
+      if (target !== currentHoverIndex.value) {
+        currentHoverIndex.value = target;
+        runOnJS(triggerHaptic.selection)();
+      }
     })
-    .onEnd((event) => {
+    .onEnd(() => {
       'worklet';
-      isDragging.value = false;
-      const moveCount = Math.round(event.translationY / ROW_HEIGHT);
-      const targetIndex = Math.max(0, Math.min(total - 1, index + moveCount));
+      const finalTarget = currentHoverIndex.value;
+      const finalOffset = (finalTarget - index) * SLOT_HEIGHT;
+      isPressing.value = false;
 
-      // Settle directly into target position with clean critically-damped timing
-      translateY.value = withTiming(0, { duration: 160 }, () => {
-        if (targetIndex !== index) {
-          runOnJS(onReorder)(index, targetIndex);
+      // Settle smoothly into target slot before applying reorder
+      dragTranslationY.value = withTiming(finalOffset, { duration: 160 }, (finished) => {
+        if (finished) {
+          if (finalTarget !== index) {
+            runOnJS(onReorder)(index, finalTarget);
+          }
+          activeDragIndex.value = -1;
+          currentHoverIndex.value = -1;
+          dragTranslationY.value = 0;
         }
       });
       runOnJS(triggerHaptic.light)();
+    })
+    .onFinalize(() => {
+      'worklet';
+      if (isPressing.value) {
+        isPressing.value = false;
+        activeDragIndex.value = -1;
+        currentHoverIndex.value = -1;
+        dragTranslationY.value = 0;
+      }
     });
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: translateY.value },
-      { scale: isDragging.value ? withTiming(1.025, { duration: 120 }) : withTiming(1, { duration: 140 }) },
-    ],
-    zIndex: isDragging.value ? 99 : 1,
-    elevation: isDragging.value ? 10 : 0,
-    shadowColor: '#000000',
-    shadowOpacity: isDragging.value ? 0.3 : 0,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const isSelf = activeDragIndex.value === index;
+    const isAnyActive = activeDragIndex.value !== -1;
+
+    if (isSelf) {
+      return {
+        transform: [
+          { translateY: dragTranslationY.value },
+          {
+            scale: isPressing.value
+              ? withSpring(1.04, { damping: 15, stiffness: 280 })
+              : withTiming(1, { duration: 140 }),
+          },
+        ],
+        zIndex: 100,
+        elevation: 12,
+        shadowColor: '#000000',
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      };
+    }
+
+    // Live slot shifting: other items actively slide to open/close slots in real time
+    let shiftY = 0;
+    if (isAnyActive) {
+      const from = activeDragIndex.value;
+      const to = currentHoverIndex.value;
+
+      if (from < to) {
+        // Dragging down: items between from and to shift UP
+        if (index > from && index <= to) {
+          shiftY = -SLOT_HEIGHT;
+        }
+      } else if (from > to) {
+        // Dragging up: items between to and from shift DOWN
+        if (index < from && index >= to) {
+          shiftY = SLOT_HEIGHT;
+        }
+      }
+    }
+
+    return {
+      transform: [
+        { translateY: withSpring(shiftY, { damping: 20, stiffness: 240 }) },
+        { scale: 1 },
+      ],
+      zIndex: 1,
+      elevation: 0,
+      shadowOpacity: 0,
+    };
+  });
 
   return (
     <Animated.View
@@ -207,6 +280,10 @@ export default function HabitsScreen() {
   };
 
   const scrollY = useSharedValue(0);
+  const activeDragIndex = useSharedValue(-1);
+  const currentHoverIndex = useSharedValue(-1);
+  const dragTranslationY = useSharedValue(0);
+  const isPressing = useSharedValue(false);
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
@@ -322,6 +399,10 @@ export default function HabitsScreen() {
                     habit={habit}
                     index={index}
                     total={activeHabits.length}
+                    activeDragIndex={activeDragIndex}
+                    currentHoverIndex={currentHoverIndex}
+                    dragTranslationY={dragTranslationY}
+                    isPressing={isPressing}
                     onReorder={handleReorder}
                     onPress={() => setDetailHabit(habit)}
                     onEdit={() => {
@@ -515,12 +596,12 @@ const styles = StyleSheet.create({
   habitCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.sm + 2,
+    paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.sm,
     borderRadius: RADII.card,
     borderWidth: 1,
     marginBottom: SPACING.sm,
-    minHeight: ROW_HEIGHT,
+    height: ROW_HEIGHT,
   },
   dragHandle: {
     paddingHorizontal: SPACING.xs,

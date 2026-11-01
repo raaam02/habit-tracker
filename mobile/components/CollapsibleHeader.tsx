@@ -27,7 +27,33 @@ export const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({
   const { theme, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
 
-  const topInset = Platform.OS === 'ios' ? insets.top : 0;
+  // On Android, provide an immersive, clean, static header:
+  // - Matches status bar background seamlessly
+  // - No scroll-to-center animation
+  // - No duplicate action buttons
+  // - Zero dead space/padding after header
+  if (Platform.OS === 'android') {
+    return (
+      <View style={[styles.androidHeader, { backgroundColor: theme.background }]}>
+        <View style={styles.titleCol}>
+          {subtitle ? (
+            <Text style={[styles.subtitleText, { color: theme.textMuted }]} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+          <Text style={[styles.largeTitleText, { color: theme.text }]} numberOfLines={1}>
+            {title}
+          </Text>
+        </View>
+        {rightAction ? (
+          <View style={styles.androidRightAction}>{rightAction}</View>
+        ) : null}
+      </View>
+    );
+  }
+
+  // iOS / Web Native Collapsible Header
+  const topInset = insets.top;
   const navBarHeight = 44;
 
   // Mini navigation bar title appears smoothly as user scrolls past large title
@@ -53,7 +79,7 @@ export const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({
     };
   });
 
-  // Top blurred glass bar opacity when scrolled
+  // Top blurred glass bar opacity only when scrolled (transparent at rest)
   const navBarBgStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       scrollY.value,
@@ -66,7 +92,7 @@ export const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({
     };
   });
 
-  // Large title fades and translates slightly up as it scrolls under the nav bar
+  // Large title fades cleanly without overscroll ballooning
   const largeTitleAnimatedStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       scrollY.value,
@@ -74,21 +100,14 @@ export const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({
       [1, 0],
       Extrapolation.CLAMP
     );
-    const scale = interpolate(
-      scrollY.value,
-      [-100, 0],
-      [1.15, 1],
-      Extrapolation.CLAMP
-    );
     return {
       opacity,
-      transform: [{ scale }],
     };
   });
 
   return (
     <>
-      {/* Sticky Top Navigation Bar */}
+      {/* Sticky Top Navigation Bar (iOS only) */}
       <View
         pointerEvents="box-none"
         style={[
@@ -100,8 +119,8 @@ export const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({
           },
         ]}
       >
-        {/* Background Blur */}
-        <Animated.View style={[StyleSheet.absoluteFill, navBarBgStyle]}>
+        {/* Background Blur only visible on scroll */}
+        <Animated.View style={[StyleSheet.absoluteFill, navBarBgStyle]} pointerEvents="none">
           {Platform.OS === 'ios' ? (
             <BlurView
               intensity={80}
@@ -125,7 +144,7 @@ export const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({
         </Animated.View>
 
         {/* Small Center Title (Native iOS standard) */}
-        <View style={styles.navContent}>
+        <View style={styles.navContent} pointerEvents="none">
           <Animated.View style={[styles.navCenter, navTitleAnimatedStyle]}>
             <Text
               style={[
@@ -137,27 +156,23 @@ export const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({
               {title}
             </Text>
           </Animated.View>
-
-          {/* Right Action button if any */}
-          {rightAction ? (
-            <View style={styles.navRightWrap}>{rightAction}</View>
-          ) : null}
         </View>
       </View>
 
-      {/* Large Collapsible Title rendered at top of content */}
+      {/* Large Title Header rendered once inline at top of content */}
       <Animated.View style={[styles.largeTitleContainer, largeTitleAnimatedStyle]}>
         <View style={styles.largeTitleRow}>
           <View style={styles.titleCol}>
             {subtitle ? (
-              <Text style={[styles.subtitleText, { color: theme.textMuted }]}>
+              <Text style={[styles.subtitleText, { color: theme.textMuted }]} numberOfLines={1}>
                 {subtitle}
               </Text>
             ) : null}
-            <Text style={[styles.largeTitleText, { color: theme.text }]}>
+            <Text style={[styles.largeTitleText, { color: theme.text }]} numberOfLines={1}>
               {title}
             </Text>
           </View>
+          {/* Exactly ONE instance of rightAction rendered */}
           {rightAction ? <View style={styles.inlineRightAction}>{rightAction}</View> : null}
         </View>
       </Animated.View>
@@ -166,6 +181,17 @@ export const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({
 };
 
 const styles = StyleSheet.create({
+  androidHeader: {
+    paddingHorizontal: SPACING.base,
+    paddingTop: SPACING.xs,
+    paddingBottom: SPACING.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  androidRightAction: {
+    marginLeft: SPACING.sm,
+  },
   stickyNavBar: {
     position: 'absolute',
     left: 0,
@@ -182,11 +208,9 @@ const styles = StyleSheet.create({
   },
   navContent: {
     height: 44,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACING.base,
-    position: 'relative',
   },
   navCenter: {
     alignItems: 'center',
@@ -197,14 +221,9 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
   },
-  navRightWrap: {
-    position: 'absolute',
-    right: SPACING.base,
-    bottom: 6,
-  },
   largeTitleContainer: {
     paddingHorizontal: SPACING.base,
-    paddingTop: Platform.OS === 'ios' ? 52 : SPACING.sm,
+    paddingTop: Platform.OS === 'ios' ? 12 : SPACING.xs,
     paddingBottom: SPACING.xs,
   },
   largeTitleRow: {
@@ -223,12 +242,12 @@ const styles = StyleSheet.create({
   },
   largeTitleText: {
     ...TYPOGRAPHY.title1,
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '800',
     letterSpacing: 0.35,
   },
   inlineRightAction: {
     marginLeft: SPACING.sm,
-    marginBottom: 4,
+    marginBottom: 2,
   },
 });

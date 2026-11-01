@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: SPACING.base,
-    paddingTop: Platform.OS === 'android' ? SPACING.xl : SPACING.sm,
+    paddingTop: SPACING.sm,
     paddingBottom: 90,
   },
   header: {

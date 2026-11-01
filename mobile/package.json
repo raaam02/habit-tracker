@@ -12,12 +12,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@expo/ui": "~58.0.25",
+    "@expo/ui": "~58.0.26",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "9.2.1",
     "date-fns": "^4.1.0",
-    "expo": "~58.0.21",
+    "expo": "~58.0.22",
     "expo-blur": "~58.0.5",
     "expo-constants": "~58.0.14",
     "expo-document-picker": "~58.0.4",
@@ -27,7 +27,7 @@
     "expo-haptics": "~58.0.7",
     "expo-linking": "~58.0.15",
     "expo-notifications": "~58.1.7",
-    "expo-router": "~58.0.28",
+    "expo-router": "~58.0.29",
     "expo-sharing": "~58.0.21",
     "expo-splash-screen": "~58.0.12",
     "expo-status-bar": "~58.0.4",

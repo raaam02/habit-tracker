@@ -67,8 +67,17 @@ Designed around speed and feel: open the app, see today's habits, log one with a
 ### 10. Android Notifications & Channel Setup
 - **Decision**: Configured explicit Android Notification Channel (`setNotificationChannelAsync('habit_reminders')`) with `importance: MAX` and added a "Test reminder" action button in Settings to verify immediate notification delivery.
 
-### 11. Responsive Web & PWA
-- **Decision**: On desktop screens, centers the app in a column of max 520px with the bottom tab bar anchored for natural ergonomics. Includes a PWA manifest (`public/manifest.json`), favicon, and full keyboard navigation.
+### 12. Immersive Platform Headers & Single Action Rendering
+- **Decision**: Refactored `components/CollapsibleHeader.tsx`:
+  - **Single Action Button**: Eliminated duplicate rendering where `rightAction` was rendered simultaneously in the sticky navigation bar and the inline header row (e.g. "Today Today" or "+ New habit + New habit").
+  - **No Overscroll Inflation**: Removed `[-100, 0] -> [1.15, 1]` title ballooning to maintain sharp, consistent typography.
+  - **Android Immersive Header**: Rendered as a clean, static, immersive component with header background seamlessly matching the status bar background (`theme.background`). Removed artificial scroll-to-center animation and eliminated dead vertical padding between header and content.
+  - **iOS Clean Navigation**: Preserved native large title behavior with transparent nav bar at rest and smooth blur effect only when scrolled.
+
+### 13. Android Themed Native Tabs & Real-Time Live Shift Reordering
+- **Decision**:
+  - **Android Native Tabs (`_layout.native.tsx`)**: Configured `backgroundColor={theme.surface}`, `labelVisibilityMode="labeled"` (labels always visible across all tabs), `tintColor={theme.accent}`, `indicatorColor`, and themed active/inactive icon and label styles, overriding Android Material 3 dynamic beige/brown tints.
+  - **Habits Drag-to-Reorder**: Touching the reorder handle immediately provides tactile visual elevation (`scale: 1.04`) and haptic feedback. While dragging, other habit items smoothly slide up or down in real-time (`withSpring`) to actively vacate the target slot, with a selection haptic tick on every slot crossed.
 
 ---
 
