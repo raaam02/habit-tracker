@@ -7,136 +7,197 @@ import {
   StyleSheet,
   AppState,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle } from 'react-native-svg';
 import Animated, {
   useSharedValue,
+  useAnimatedStyle,
   useAnimatedProps,
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Habit } from '../types/habit';
 import { useAppTheme } from '../constants/useAppTheme';
-import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../constants/theme';
+import { useTimerStore } from '../store/timerStore';
+import { SPACING, RADII, TYPOGRAPHY } from '../constants/theme';
 import { triggerHaptic } from '../services/haptics';
+import {
+  showBackgroundTimerNotification,
+  cancelBackgroundTimerNotification,
+} from '../services/notifications';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface RunningHabitTimerProps {
-  visible: boolean;
-  habit: Habit | null;
+  visible?: boolean;
+  habit?: Habit | null;
   initialMinutes?: number;
-  onClose: () => void;
-  onFinish: (loggedMinutes: number) => void;
+  onClose?: () => void;
+  onFinish?: (loggedMinutes: number) => void;
 }
 
 export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
-  visible,
-  habit,
+  visible: propVisible,
+  habit: propHabit,
   initialMinutes = 0,
-  onClose,
-  onFinish,
+  onClose: propOnClose,
+  onFinish: propOnFinish,
 }) => {
   const { theme, isDark } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+
+  // Global timer store
+  const storeHabit = useTimerStore((state) => state.habit);
+  const storeHabitId = useTimerStore((state) => state.habitId);
+  const isRunning = useTimerStore((state) => state.isRunning);
+  const isFinished = useTimerStore((state) => state.isFinished);
+  const isModalOpen = useTimerStore((state) => state.isModalOpen);
+  const isFullscreen = useTimerStore((state) => state.isFullscreen);
+  const targetMinutes = useTimerStore((state) => state.targetMinutes);
+
+  const startTimer = useTimerStore((state) => state.startTimer);
+  const pauseTimer = useTimerStore((state) => state.pauseTimer);
+  const resumeTimer = useTimerStore((state) => state.resumeTimer);
+  const resetTimer = useTimerStore((state) => state.resetTimer);
+  const finishTimer = useTimerStore((state) => state.finishTimer);
+  const setModalOpen = useTimerStore((state) => state.setModalOpen);
+  const toggleFullscreen = useTimerStore((state) => state.toggleFullscreen);
+  const getElapsedSeconds = useTimerStore((state) => state.getElapsedSeconds);
+
+  // Active habit resolution
+  const activeHabit = storeHabit || propHabit;
+  const isVisible = propVisible !== undefined ? propVisible || isModalOpen : isModalOpen;
 
   const [seconds, setSeconds] = useState(0);
-  const [isActive, setIsActive] = useState(false);
-  const [isFinished, setIsFinished] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
 
   const lastTickRef = useRef<number>(Date.now());
   const animatedOffset = useSharedValue(0);
+  const controlsOpacity = useSharedValue(1);
 
-  const targetMinutes = habit?.target || 30;
-  const targetSeconds = Math.max(60, targetMinutes * 60);
+  // Always reset controls to visible when modal opens or fullscreen mode changes
+  useEffect(() => {
+    setControlsVisible(true);
+    controlsOpacity.value = 1;
+  }, [isFullscreen, isVisible]);
 
-  const size = 260;
+  const toggleControls = () => {
+    if (!isFullscreen) return;
+    triggerHaptic.light();
+    const next = !controlsVisible;
+    setControlsVisible(next);
+    controlsOpacity.value = withTiming(next ? 1 : 0, {
+      duration: 250,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+    });
+  };
+
+  const controlsAnimStyle = useAnimatedStyle(() => ({
+    opacity: controlsOpacity.value,
+  }));
+
+  const handleRingPress = () => {
+    // If controls are hidden in fullscreen, tapping the ring also restores them
+    if (isFullscreen && !controlsVisible) {
+      toggleControls();
+    }
+  };
+
+  const targetMins = activeHabit?.target || targetMinutes || 30;
+  const targetSeconds = Math.max(60, targetMins * 60);
+
+  // Clean, responsive ring dimensions
+  const ringSize = isFullscreen
+    ? Math.min(290, width - 80)
+    : Math.min(240, width - 80);
   const strokeWidth = 12;
-  const radius = (size - strokeWidth) / 2;
+  const radius = (ringSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  // Initialize state when timer becomes visible
+  // Initialize or start if opened via props
   useEffect(() => {
-    if (visible && habit) {
-      const startingSecs = Math.max(0, initialMinutes * 60);
-      setSeconds(startingSecs);
-      setIsActive(true);
-      const finished = startingSecs >= targetSeconds;
-      setIsFinished(finished);
+    if (propVisible && propHabit && (!storeHabitId || storeHabitId !== propHabit.id)) {
+      startTimer(propHabit, initialMinutes);
+    }
+  }, [propVisible, propHabit, storeHabitId, initialMinutes, startTimer]);
 
-      const ratio = targetSeconds > 0 ? Math.min(1, startingSecs / targetSeconds) : 0;
+  // Sync seconds from store on mount / resume
+  useEffect(() => {
+    if (isVisible && activeHabit) {
+      const currentSecs = getElapsedSeconds();
+      setSeconds(currentSecs);
+      const ratio = targetSeconds > 0 ? Math.min(1, currentSecs / targetSeconds) : 0;
       animatedOffset.value = circumference - ratio * circumference;
       lastTickRef.current = Date.now();
-    } else {
-      setIsActive(false);
-      setSeconds(0);
-      animatedOffset.value = circumference;
     }
-  }, [visible, habit, initialMinutes, targetSeconds, circumference]);
+  }, [isVisible, activeHabit, circumference, targetSeconds, getElapsedSeconds]);
 
-  // High-frequency 60fps clock for smooth fluid ring animation
+  // Live timer ticks and AppState background integration
   useEffect(() => {
-    if (!visible || !isActive || isFinished) return;
+    if (!activeHabit) return;
 
-    lastTickRef.current = Date.now();
+    let ticker: any = null;
+    let animLoop: any = null;
 
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const deltaSecs = (now - lastTickRef.current) / 1000;
-      const currentTotal = seconds + deltaSecs;
-
-      const progress = Math.min(1, Math.max(0, currentTotal / targetSeconds));
-      // Fluid direct offset update
-      animatedOffset.value = circumference - progress * circumference;
-
-      if (currentTotal >= targetSeconds && !isFinished) {
-        setIsFinished(true);
-        triggerHaptic.success();
-      }
-    }, 50); // 20 updates per second for butter-smooth SVG interpolation
-
-    // 1-second display ticker
-    const secondTimer = setInterval(() => {
-      setSeconds((prev) => prev + 1);
+    if (isRunning) {
       lastTickRef.current = Date.now();
-    }, 1000);
+
+      animLoop = setInterval(() => {
+        const curSecs = getElapsedSeconds();
+        const progress = Math.min(1, Math.max(0, curSecs / targetSeconds));
+        animatedOffset.value = circumference - progress * circumference;
+      }, 100);
+
+      ticker = setInterval(() => {
+        setSeconds(getElapsedSeconds());
+      }, 1000);
+    }
 
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
-        const now = Date.now();
-        const delta = Math.floor((now - lastTickRef.current) / 1000);
-        if (delta > 0) {
-          setSeconds((prev) => prev + delta);
+      if (nextState === 'background' || nextState === 'inactive') {
+        if (isRunning && activeHabit) {
+          const curSecs = getElapsedSeconds();
+          showBackgroundTimerNotification(activeHabit.name, curSecs, targetMins, activeHabit.id);
         }
-        lastTickRef.current = Date.now();
+      } else if (nextState === 'active') {
+        if (activeHabit) {
+          cancelBackgroundTimerNotification(activeHabit.id);
+          setSeconds(getElapsedSeconds());
+        }
       }
     });
 
     return () => {
-      clearInterval(interval);
-      clearInterval(secondTimer);
+      if (ticker) clearInterval(ticker);
+      if (animLoop) clearInterval(animLoop);
       subscription.remove();
     };
-  }, [visible, isActive, isFinished, targetSeconds, circumference, seconds]);
+  }, [isRunning, activeHabit, targetSeconds, targetMins, circumference, getElapsedSeconds]);
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: animatedOffset.value,
   }));
 
-  if (!habit) return null;
+  if (!activeHabit || !isVisible) return null;
 
   const handleTogglePlayPause = () => {
     triggerHaptic.light();
-    setIsActive((prev) => !prev);
-    lastTickRef.current = Date.now();
+    if (isRunning) {
+      pauseTimer();
+    } else {
+      resumeTimer();
+    }
   };
 
   const handleReset = () => {
     triggerHaptic.medium();
+    resetTimer();
     setSeconds(0);
-    setIsFinished(false);
-    setIsActive(false);
     animatedOffset.value = withTiming(circumference, {
       duration: 300,
       easing: Easing.out(Easing.cubic),
@@ -145,9 +206,23 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
 
   const handleFinish = () => {
     triggerHaptic.success();
-    const elapsedMinutes = Math.max(1, Math.round(seconds / 60));
-    onFinish(elapsedMinutes);
-    onClose();
+    const elapsedMinutes = finishTimer();
+    cancelBackgroundTimerNotification(activeHabit.id);
+
+    if (propOnFinish) {
+      propOnFinish(elapsedMinutes);
+    }
+    if (propOnClose) {
+      propOnClose();
+    }
+  };
+
+  const handleMinimize = () => {
+    triggerHaptic.light();
+    setModalOpen(false);
+    if (propOnClose) {
+      propOnClose();
+    }
   };
 
   // Format time MM:SS or HH:MM:SS
@@ -161,105 +236,183 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  const topSafeArea = Math.max(insets.top, Platform.OS === 'ios' ? 44 : 24);
+  const bottomSafeArea = Math.max(insets.bottom, 16);
+
   return (
     <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      visible={isVisible}
+      transparent={!isFullscreen}
+      animationType={isFullscreen ? 'fade' : 'slide'}
+      onRequestClose={handleMinimize}
     >
-      <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
-        <View
+      <StatusBar
+        hidden={isFullscreen && !controlsVisible}
+        style={isDark ? 'light' : 'dark'}
+      />
+      <View
+        style={[
+          isFullscreen ? styles.fullscreenOverlay : styles.modalOverlay,
+          { backgroundColor: isFullscreen ? theme.background : theme.overlay },
+        ]}
+      >
+        <Pressable
+          onPress={isFullscreen ? toggleControls : undefined}
           style={[
-            styles.container,
+            isFullscreen ? styles.fullscreenContainer : styles.cardContainer,
             {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
+              backgroundColor: isFullscreen ? theme.background : theme.surface,
+              borderColor: isFullscreen ? 'transparent' : theme.border,
+              paddingTop: isFullscreen ? topSafeArea + SPACING.base : SPACING.lg,
+              paddingBottom: isFullscreen ? bottomSafeArea + SPACING.base : SPACING.lg,
             },
           ]}
         >
-          {/* Header */}
-          <View style={styles.header}>
+          {/* Top Header Bar */}
+          <Animated.View
+            style={[styles.header, isFullscreen ? controlsAnimStyle : null]}
+            pointerEvents={isFullscreen && !controlsVisible ? 'none' : 'box-none'}
+          >
             <View style={styles.headerLeft}>
               <View
                 style={[
                   styles.habitIconCircle,
-                  { backgroundColor: `${habit.color}20` },
+                  { backgroundColor: `${activeHabit.color}20` },
                 ]}
               >
-                <Ionicons name={habit.icon as any} size={22} color={habit.color} />
+                <Ionicons name={activeHabit.icon as any} size={20} color={activeHabit.color} />
               </View>
-              <View>
+              <View style={styles.headerTitleWrap}>
                 <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
-                  {habit.name}
+                  {activeHabit.name}
                 </Text>
                 <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-                  Target: {targetMinutes} minutes
+                  {targetMins}m target
                 </Text>
               </View>
             </View>
 
+            {/* Right Action Icons: Fullscreen Toggle & Close Button */}
+            <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => {
+                  triggerHaptic.selection();
+                  toggleFullscreen();
+                }}
+                style={({ pressed }) => [
+                  styles.headerBtn,
+                  { backgroundColor: pressed ? theme.surfaceHighlight : theme.elevated },
+                ]}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={isFullscreen ? 'Exit fullscreen mode' : 'Enter fullscreen mode'}
+              >
+                <Ionicons
+                  name={isFullscreen ? 'contract-outline' : 'expand-outline'}
+                  size={18}
+                  color={theme.text}
+                />
+              </Pressable>
+
+              <Pressable
+                onPress={handleMinimize}
+                style={({ pressed }) => [
+                  styles.headerBtn,
+                  { backgroundColor: pressed ? theme.surfaceHighlight : theme.elevated },
+                ]}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Close timer"
+              >
+                <Ionicons
+                  name="close"
+                  size={19}
+                  color={theme.textMuted}
+                />
+              </Pressable>
+            </View>
+          </Animated.View>
+
+          {/* Center Progress Ring Area */}
+          <View
+            style={isFullscreen ? styles.fullscreenCenterArea : styles.cardCenterArea}
+            pointerEvents="box-none"
+          >
             <Pressable
-              onPress={onClose}
-              style={({ pressed }) => [
-                styles.closeBtn,
-                { backgroundColor: pressed ? theme.surfaceHighlight : 'transparent' },
+              onPress={handleRingPress}
+              style={[
+                styles.ringWrapper,
+                { width: ringSize, height: ringSize, borderRadius: ringSize / 2 },
               ]}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Close timer"
             >
-              <Ionicons name="close" size={22} color={theme.textMuted} />
+              <Svg width={ringSize} height={ringSize}>
+                {/* Background Track */}
+                <Circle
+                  cx={ringSize / 2}
+                  cy={ringSize / 2}
+                  r={radius}
+                  stroke={theme.surfaceHighlight}
+                  strokeWidth={strokeWidth}
+                  fill="none"
+                />
+                {/* Active Progress */}
+                <AnimatedCircle
+                  cx={ringSize / 2}
+                  cy={ringSize / 2}
+                  r={radius}
+                  stroke={isFinished ? theme.success : activeHabit.color}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={circumference}
+                  animatedProps={animatedProps}
+                  strokeLinecap="round"
+                  fill="none"
+                  transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+                />
+              </Svg>
+
+              <View style={styles.centerTimeWrap} pointerEvents="none">
+                <Text
+                  style={[
+                    isFullscreen ? styles.fullscreenTimerText : styles.cardTimerText,
+                    {
+                      color: theme.text,
+                      fontVariant: ['tabular-nums'],
+                    },
+                  ]}
+                >
+                  {formatTime()}
+                </Text>
+                {/* Show status label only if paused or finished - zero clutter while running */}
+                {isFinished ? (
+                  <Animated.Text
+                    style={[
+                      styles.statusLabel,
+                      { color: theme.success },
+                      isFullscreen ? controlsAnimStyle : null,
+                    ]}
+                  >
+                    Goal Reached! 🎉
+                  </Animated.Text>
+                ) : !isRunning && seconds > 0 ? (
+                  <Animated.Text
+                    style={[
+                      styles.statusLabel,
+                      { color: theme.textMuted },
+                      isFullscreen ? controlsAnimStyle : null,
+                    ]}
+                  >
+                    Paused
+                  </Animated.Text>
+                ) : null}
+              </View>
             </Pressable>
           </View>
 
-          {/* Big Progress Ring with live continuous timer */}
-          <View style={styles.ringWrapper}>
-            <Svg width={size} height={size}>
-              {/* Background Track */}
-              <Circle
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                stroke={theme.surfaceHighlight}
-                strokeWidth={strokeWidth}
-                fill="none"
-              />
-              {/* Active Smooth Animated Progress */}
-              <AnimatedCircle
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                stroke={isFinished ? theme.success : habit.color}
-                strokeWidth={strokeWidth}
-                strokeDasharray={circumference}
-                animatedProps={animatedProps}
-                strokeLinecap="round"
-                fill="none"
-                transform={`rotate(-90 ${size / 2} ${size / 2})`}
-              />
-            </Svg>
-
-            <View style={styles.centerTimeWrap}>
-              <Text
-                style={[
-                  styles.timerText,
-                  {
-                    color: theme.text,
-                    fontVariant: ['tabular-nums'],
-                  },
-                ]}
-              >
-                {formatTime()}
-              </Text>
-              <Text style={[styles.statusLabel, { color: isFinished ? theme.success : theme.textMuted }]}>
-                {isFinished ? 'Goal Reached!' : isActive ? 'In Progress' : 'Paused'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Controls */}
-          <View style={styles.controlsRow}>
+          {/* Controls Row */}
+          <Animated.View
+            style={[styles.controlsRow, isFullscreen ? controlsAnimStyle : null]}
+            pointerEvents={isFullscreen && !controlsVisible ? 'none' : 'box-none'}
+          >
             {/* Reset */}
             <Pressable
               onPress={handleReset}
@@ -280,23 +433,23 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
             <Pressable
               onPress={handleTogglePlayPause}
               style={({ pressed }) => [
-                styles.primaryCtrlBtn,
+                isFullscreen ? styles.fullscreenPrimaryBtn : styles.cardPrimaryBtn,
                 {
                   backgroundColor: isFinished
                     ? theme.success
-                    : habit.color,
+                    : activeHabit.color,
                   opacity: pressed ? 0.85 : 1,
                   transform: [{ scale: pressed ? 0.94 : 1 }],
                 },
               ]}
               accessibilityRole="button"
-              accessibilityLabel={isActive ? 'Pause' : 'Start'}
+              accessibilityLabel={isRunning ? 'Pause timer' : 'Start timer'}
             >
               <Ionicons
-                name={isActive ? 'pause' : 'play'}
-                size={28}
+                name={isRunning ? 'pause' : 'play'}
+                size={isFullscreen ? 34 : 28}
                 color="#FFFFFF"
-                style={{ marginLeft: isActive ? 0 : 3 }}
+                style={{ marginLeft: isRunning ? 0 : 3 }}
               />
             </Pressable>
 
@@ -319,26 +472,31 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
                 color={isFinished ? theme.success : theme.text}
               />
             </Pressable>
-          </View>
-        </View>
+          </Animated.View>
+        </Pressable>
       </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.base,
   },
-  container: {
+  fullscreenOverlay: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  cardContainer: {
     width: '100%',
     maxWidth: 380,
     borderRadius: RADII.sheet,
     borderWidth: 1,
-    padding: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
     alignItems: 'center',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 12 },
@@ -346,39 +504,65 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 20,
   },
+  fullscreenContainer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: SPACING.md,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
+  headerTitleWrap: {
+    flex: 1,
+  },
   habitIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
   },
   title: {
     ...TYPOGRAPHY.title2,
-    fontSize: 18,
+    fontSize: 17,
+    fontWeight: '700',
   },
   subtitle: {
     ...TYPOGRAPHY.caption,
     fontSize: 12,
     marginTop: 2,
   },
-  closeBtn: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardCenterArea: {
+    marginVertical: SPACING.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullscreenCenterArea: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -386,16 +570,21 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: SPACING.base,
   },
   centerTimeWrap: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  timerText: {
-    fontSize: 42,
+  cardTimerText: {
+    fontSize: 40,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: 0.5,
+  },
+  fullscreenTimerText: {
+    fontSize: 52,
+    fontWeight: '800',
     fontVariant: ['tabular-nums'],
     letterSpacing: 1,
   },
@@ -403,16 +592,17 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontSize: 13,
     marginTop: 6,
+    fontWeight: '600',
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.xl,
-    marginTop: SPACING.lg,
     width: '100%',
+    paddingBottom: SPACING.xs,
   },
-  primaryCtrlBtn: {
+  cardPrimaryBtn: {
     width: 64,
     height: 64,
     borderRadius: 32,
@@ -424,10 +614,22 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
   },
+  fullscreenPrimaryBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
   secondaryCtrlBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

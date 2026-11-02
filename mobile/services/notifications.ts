@@ -109,6 +109,107 @@ export async function syncHabitReminders(habits: Habit[], remindersEnabled: bool
 }
 
 /**
+ * Configure Android Running Timer Notification Channel
+ */
+export async function setupTimerNotificationChannel(): Promise<void> {
+  if (Platform.OS === 'android') {
+    try {
+      await Notifications.setNotificationChannelAsync('running_timer', {
+        name: 'Running Habit Timer',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: undefined,
+        enableVibrate: false,
+        showBadge: false,
+      });
+    } catch (e) {
+      console.warn('Could not setup timer notification channel:', e);
+    }
+  }
+}
+
+const TIMER_NOTIFICATION_ID = 'active_habit_timer_notification';
+const getGoalNotificationId = (habitId: string) => `timer_goal_${habitId}`;
+
+/**
+ * Show background timer notification when app is minimized or backgrounded
+ */
+export async function showBackgroundTimerNotification(
+  habitName: string,
+  elapsedSeconds: number,
+  targetMinutes: number,
+  habitId: string
+): Promise<void> {
+  if (Platform.OS === 'web') return;
+
+  try {
+    const hasPermission = await requestNotificationPermission();
+    if (!hasPermission) return;
+
+    await setupTimerNotificationChannel();
+
+    const targetSeconds = targetMinutes * 60;
+    const remainingSeconds = Math.max(0, targetSeconds - elapsedSeconds);
+    const isCompleted = elapsedSeconds >= targetSeconds;
+
+    const mins = Math.floor(elapsedSeconds / 60);
+    const secs = elapsedSeconds % 60;
+    const timeFormatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+    // 1. Show immediate notification that timer is running in background
+    await Notifications.scheduleNotificationAsync({
+      identifier: TIMER_NOTIFICATION_ID,
+      content: {
+        title: isCompleted ? `🎉 ${habitName} Goal Reached!` : `⏱️ ${habitName} Timer Running`,
+        body: isCompleted
+          ? `Target of ${targetMinutes}m complete! Tap to log and protect your streak.`
+          : `${timeFormatted} elapsed of ${targetMinutes}m goal • Running in background`,
+        sound: isCompleted ? 'default' : undefined,
+        sticky: true,
+        priority: Notifications.AndroidNotificationPriority.HIGH,
+        ...(Platform.OS === 'android' ? { channelId: 'running_timer' } : {}),
+      },
+      trigger: null, // immediate
+    });
+
+    // 2. If target not yet hit, schedule goal notification for exact remaining seconds
+    if (!isCompleted && remainingSeconds > 0) {
+      await Notifications.scheduleNotificationAsync({
+        identifier: getGoalNotificationId(habitId),
+        content: {
+          title: `🎯 Goal Reached: ${habitName}!`,
+          body: `You completed your ${targetMinutes} minute goal. Tap to save!`,
+          sound: 'default',
+          priority: Notifications.AndroidNotificationPriority.MAX,
+          ...(Platform.OS === 'android' ? { channelId: 'habit_reminders' } : {}),
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: remainingSeconds,
+        },
+      });
+    }
+  } catch (e) {
+    console.warn('Failed to post background timer notification:', e);
+  }
+}
+
+/**
+ * Cancel background timer notification when user returns or stops timer
+ */
+export async function cancelBackgroundTimerNotification(habitId?: string): Promise<void> {
+  if (Platform.OS === 'web') return;
+
+  try {
+    await Notifications.dismissNotificationAsync(TIMER_NOTIFICATION_ID);
+    if (habitId) {
+      await Notifications.cancelScheduledNotificationAsync(getGoalNotificationId(habitId));
+    }
+  } catch (e) {
+    // ignore dismissal errors
+  }
+}
+
+/**
  * Send an immediate test notification to verify the pipeline.
  */
 export async function triggerTestNotification(): Promise<boolean> {
@@ -133,3 +234,5 @@ export async function triggerTestNotification(): Promise<boolean> {
     return false;
   }
 }
+
+

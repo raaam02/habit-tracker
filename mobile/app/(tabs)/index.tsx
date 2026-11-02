@@ -30,7 +30,7 @@ import { ProgressRing } from '../../components/ProgressRing';
 import { HabitCard } from '../../components/HabitCard';
 import { HabitSheet } from '../../components/HabitSheet';
 import { NumberInputModal } from '../../components/NumberInputModal';
-import { RunningHabitTimer } from '../../components/RunningHabitTimer';
+import { useTimerStore } from '../../store/timerStore';
 import { HabitDetailModal } from '../../components/HabitDetailModal';
 import { Snackbar } from '../../components/Snackbar';
 import { Celebration } from '../../components/Celebration';
@@ -58,7 +58,7 @@ export default function TodayScreen() {
   const [sheetVisible, setSheetVisible] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [numberModalHabit, setNumberModalHabit] = useState<Habit | null>(null);
-  const [timerHabit, setTimerHabit] = useState<Habit | null>(null);
+  const startTimer = useTimerStore((state) => state.startTimer);
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [hasCelebratedForDate, setHasCelebratedForDate] = useState<string | null>(null);
@@ -252,7 +252,10 @@ export default function TodayScreen() {
                   onComplete={() => handleCompleteHabit(habit)}
                   onIncrement={() => incrementHabit(habit.id, selectedDate, 1)}
                   onOpenNumberInput={() => setNumberModalHabit(habit)}
-                  onOpenTimer={() => setTimerHabit(habit)}
+                  onOpenTimer={() => {
+                    const currentVal = logs.find((l) => l.habitId === habit.id && l.date === selectedDate)?.value || 0;
+                    startTimer(habit, currentVal);
+                  }}
                   onSkip={() => skipHabit(habit.id, selectedDate)}
                   onArchive={() => archiveHabit(habit.id)}
                   onOpenDetail={() => setDetailHabit(habit)}
@@ -288,21 +291,6 @@ export default function TodayScreen() {
         onSave={(newVal) => {
           if (numberModalHabit) {
             logHabit(numberModalHabit.id, selectedDate, newVal);
-          }
-        }}
-      />
-
-      {/* Running Live Timer for Time-Based Habits */}
-      <RunningHabitTimer
-        visible={!!timerHabit}
-        habit={timerHabit}
-        initialMinutes={
-          logs.find((l) => l.habitId === timerHabit?.id && l.date === selectedDate)?.value || 0
-        }
-        onClose={() => setTimerHabit(null)}
-        onFinish={(loggedMinutes) => {
-          if (timerHabit) {
-            logHabit(timerHabit.id, selectedDate, loggedMinutes);
           }
         }}
       />

@@ -6,7 +6,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../constants/useAppTheme';
 import { useHabitStore } from '../store/habitStore';
+import { useTimerStore } from '../store/timerStore';
 import { syncHabitReminders } from '../services/notifications';
+import { RunningHabitTimer } from '../components/RunningHabitTimer';
 
 function AppShell() {
   const { theme, isDark } = useAppTheme();
@@ -31,6 +33,16 @@ function AppShell() {
       router.replace('/onboarding');
     }
   }, [hasCompletedOnboarding, segments]);
+
+  const logHabit = useHabitStore((state) => state.logHabit);
+  const selectedDate = useHabitStore((state) => state.selectedDate);
+  const timerHabit = useTimerStore((state) => state.habit);
+
+  const handleTimerFinish = (loggedMinutes: number) => {
+    if (timerHabit) {
+      logHabit(timerHabit.id, selectedDate, loggedMinutes);
+    }
+  };
 
   // On Android, ensure content never slips behind the status bar
   const androidTopInset = Platform.OS === 'android' ? Math.max(insets.top, 24) : 0;
@@ -70,6 +82,9 @@ function AppShell() {
               }}
             />
           </Stack>
+
+          {/* Global Running Timer with Fullscreen Mode & Background Notifications */}
+          <RunningHabitTimer onFinish={handleTimerFinish} />
         </View>
       </View>
     </>

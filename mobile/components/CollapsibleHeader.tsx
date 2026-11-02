@@ -1,15 +1,17 @@
-import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   SharedValue,
   useAnimatedStyle,
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../constants/useAppTheme';
-import { TYPOGRAPHY, SPACING } from '../constants/theme';
+import { useTimerStore } from '../store/timerStore';
+import { TYPOGRAPHY, SPACING, RADII } from '../constants/theme';
+import { triggerHaptic } from '../services/haptics';
 
 interface CollapsibleHeaderProps {
   title: string;
@@ -27,225 +29,133 @@ export const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({
   const { theme, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
 
-  // On Android, provide an immersive, clean, static header:
-  // - Matches status bar background seamlessly
-  // - No scroll-to-center animation
-  // - No duplicate action buttons
-  // - Zero dead space/padding after header
-  if (Platform.OS === 'android') {
-    return (
-      <View style={[styles.androidHeader, { backgroundColor: theme.background }]}>
+  // Connected running timer state
+  const timerHabit = useTimerStore((state) => state.habit);
+  const isTimerRunning = useTimerStore((state) => state.isRunning);
+  const isModalOpen = useTimerStore((state) => state.isModalOpen);
+  const setModalOpen = useTimerStore((state) => state.setModalOpen);
+  const getElapsedSeconds = useTimerStore((state) => state.getElapsedSeconds);
+
+  const [headerElapsed, setHeaderElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!timerHabit || isModalOpen) return;
+
+    setHeaderElapsed(getElapsedSeconds());
+
+    if (!isTimerRunning) return;
+
+    const interval = setInterval(() => {
+      setHeaderElapsed(getElapsedSeconds());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timerHabit, isTimerRunning, isModalOpen, getElapsedSeconds]);
+
+  // On iOS, ensure content clears the status bar / Dynamic Island (minimum 47pt fallback)
+  const topInset = Platform.OS === 'ios' ? (insets.top > 0 ? insets.top : 47) : 0;
+
+  // Hairline bottom border fades in when content scrolls underneath
+  const borderAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, 20],
+      [0, 1],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
+  });
+
+  const mins = Math.floor(headerElapsed / 60);
+  const secs = headerElapsed % 60;
+  const timeFormatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+  return (
+    <View
+      style={[
+        styles.headerContainer,
+        {
+          backgroundColor: theme.background,
+          paddingTop: Platform.OS === 'ios' ? topInset + SPACING.xs : SPACING.xs,
+        },
+      ]}
+    >
+      <View style={styles.headerRow}>
         <View style={styles.titleCol}>
+          <Text style={[styles.largeTitleText, { color: theme.text }]} numberOfLines={1}>
+            {title}
+          </Text>
           {subtitle ? (
             <Text style={[styles.subtitleText, { color: theme.textMuted }]} numberOfLines={1}>
               {subtitle}
             </Text>
           ) : null}
-          <Text style={[styles.largeTitleText, { color: theme.text }]} numberOfLines={1}>
-            {title}
-          </Text>
         </View>
-        {rightAction ? (
-          <View style={styles.androidRightAction}>{rightAction}</View>
-        ) : null}
-      </View>
-    );
-  }
 
-  // iOS / Web Native Collapsible Header
-  const topInset = Platform.OS === 'ios' ? (insets.top > 0 ? insets.top : 47) : insets.top;
-  const navBarHeight = 44;
-
-  // Mini navigation bar title appears smoothly as user scrolls past large title
-  const navTitleAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [35, 65],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return {
-      opacity,
-      transform: [
-        {
-          translateY: interpolate(
-            scrollY.value,
-            [35, 65],
-            [8, 0],
-            Extrapolation.CLAMP
-          ),
-        },
-      ],
-    };
-  });
-
-  // Top blurred glass bar opacity only when scrolled (transparent at rest)
-  const navBarBgStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [15, 55],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    return {
-      opacity,
-    };
-  });
-
-  // Large title fades cleanly without overscroll ballooning
-  const largeTitleAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [0, 50],
-      [1, 0],
-      Extrapolation.CLAMP
-    );
-    return {
-      opacity,
-    };
-  });
-
-  return (
-    <>
-      {/* Sticky Top Navigation Bar (iOS only) */}
-      <View
-        pointerEvents="box-none"
-        style={[
-          styles.stickyNavBar,
-          {
-            top: 0,
-            paddingTop: topInset,
-            height: navBarHeight + topInset,
-          },
-        ]}
-      >
-        {/* Background Blur only visible on scroll */}
-        <Animated.View style={[StyleSheet.absoluteFill, navBarBgStyle]} pointerEvents="none">
-          {Platform.OS === 'ios' ? (
-            <BlurView
-              intensity={80}
-              tint={isDark ? 'systemMaterialDark' : 'systemMaterialLight'}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: theme.surface, opacity: 0.96 },
+        <View style={styles.rightGroup}>
+          {/* Subtle minimal running habit timer chip in header */}
+          {timerHabit && !isModalOpen && (
+            <Pressable
+              onPress={() => {
+                triggerHaptic.selection();
+                setModalOpen(true);
+              }}
+              style={({ pressed }) => [
+                styles.timerChip,
+                {
+                  backgroundColor: pressed
+                    ? theme.surfaceHighlight
+                    : isDark
+                    ? 'rgba(255, 255, 255, 0.08)'
+                    : 'rgba(0, 0, 0, 0.05)',
+                  borderColor: isTimerRunning ? `${timerHabit.color}60` : theme.border,
+                },
               ]}
-            />
-          )}
-          <View
-            style={[
-              styles.navBorder,
-              { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
-            ]}
-          />
-        </Animated.View>
-
-        {/* Small Center Title (Native iOS standard) */}
-        <View style={styles.navContent} pointerEvents="none">
-          <Animated.View style={[styles.navCenter, navTitleAnimatedStyle]}>
-            <Text
-              style={[
-                styles.navTitleText,
-                { color: theme.text },
-              ]}
-              numberOfLines={1}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel={`Running timer for ${timerHabit.name}: ${timeFormatted}. Tap to open.`}
             >
-              {title}
-            </Text>
-          </Animated.View>
+              <View style={[styles.timerChipIcon, { backgroundColor: `${timerHabit.color}25` }]}>
+                <Ionicons name={timerHabit.icon as any} size={13} color={timerHabit.color} />
+              </View>
+              <Text style={[styles.timerChipText, { color: theme.text }]}>
+                {timeFormatted}
+              </Text>
+              {isTimerRunning && (
+                <View style={[styles.pulseDot, { backgroundColor: timerHabit.color }]} />
+              )}
+            </Pressable>
+          )}
+
+          {rightAction ? (
+            <View style={styles.rightActionWrap}>{rightAction}</View>
+          ) : null}
         </View>
       </View>
-
-      {/* Large Title Header rendered once inline at top of content */}
       <Animated.View
         style={[
-          styles.largeTitleContainer,
-          {
-            paddingTop: Platform.OS === 'ios' ? topInset + 8 : SPACING.xs,
-          },
-          largeTitleAnimatedStyle,
+          styles.headerBorder,
+          { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' },
+          borderAnimatedStyle,
         ]}
-      >
-        <View style={styles.largeTitleRow}>
-          <View style={styles.titleCol}>
-            {subtitle ? (
-              <Text style={[styles.subtitleText, { color: theme.textMuted }]} numberOfLines={1}>
-                {subtitle}
-              </Text>
-            ) : null}
-            <Text style={[styles.largeTitleText, { color: theme.text }]} numberOfLines={1}>
-              {title}
-            </Text>
-          </View>
-          {/* Exactly ONE instance of rightAction rendered */}
-          {rightAction ? <View style={styles.inlineRightAction}>{rightAction}</View> : null}
-        </View>
-      </Animated.View>
-    </>
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  androidHeader: {
-    paddingHorizontal: SPACING.base,
-    paddingTop: SPACING.xs,
-    paddingBottom: SPACING.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  androidRightAction: {
-    marginLeft: SPACING.sm,
-  },
-  stickyNavBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    justifyContent: 'flex-end',
-  },
-  navBorder: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: StyleSheet.hairlineWidth,
-  },
-  navContent: {
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: SPACING.base,
-  },
-  navCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navTitleText: {
-    ...TYPOGRAPHY.headline,
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  largeTitleContainer: {
+  headerContainer: {
     paddingHorizontal: SPACING.base,
     paddingBottom: SPACING.xs,
+    position: 'relative',
   },
-  largeTitleRow: {
+  headerRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
   titleCol: {
     flex: 1,
-  },
-  subtitleText: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 13,
-    marginBottom: 2,
-    fontWeight: '500',
   },
   largeTitleText: {
     ...TYPOGRAPHY.title1,
@@ -253,8 +163,54 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.35,
   },
-  inlineRightAction: {
-    marginLeft: SPACING.sm,
-    marginBottom: 2,
+  subtitleText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 13,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  rightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: RADII.full,
+    borderWidth: 1,
+    gap: 6,
+  },
+  timerChipIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timerChipText: {
+    ...TYPOGRAPHY.tiny,
+    fontSize: 12,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  pulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  rightActionWrap: {
+    marginLeft: 0,
+  },
+  headerBorder: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: StyleSheet.hairlineWidth,
   },
 });
+
+
