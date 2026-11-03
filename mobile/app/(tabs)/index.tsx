@@ -26,7 +26,7 @@ import {
 import { computeStreakStats, isDayCompleted, isDayScheduled } from '../../utils/streaks';
 import { CollapsibleHeader } from '../../components/CollapsibleHeader';
 import { WeekStrip } from '../../components/WeekStrip';
-import { ProgressRing } from '../../components/ProgressRing';
+import { DailySummaryCard } from '../../components/DailySummaryCard';
 import { HabitCard } from '../../components/HabitCard';
 import { HabitSheet } from '../../components/HabitSheet';
 import { NumberInputModal } from '../../components/NumberInputModal';
@@ -176,26 +176,11 @@ export default function TodayScreen() {
         <WeekStrip selectedDate={selectedDate} onSelectDate={setSelectedDate} />
 
         {/* Daily Summary Progress Card */}
-        {totalCount > 0 && (
-          <Animated.View
-            layout={LinearTransition.springify().damping(22).stiffness(200)}
-            style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-          >
-            <View style={styles.summaryTextWrap}>
-              <Text style={[styles.summaryTitle, { color: theme.text }]}>
-                {completedCount === totalCount
-                  ? 'All Done for Today!'
-                  : `${completedCount} of ${totalCount} habits done`}
-              </Text>
-              <Text style={[styles.summarySubtitle, { color: theme.textMuted }]}>
-                {completedCount === totalCount
-                  ? 'Great momentum. Your streaks are protected.'
-                  : `${totalCount - completedCount} remaining today.`}
-              </Text>
-            </View>
-            <ProgressRing completed={completedCount} total={totalCount} />
-          </Animated.View>
-        )}
+        <DailySummaryCard
+          completedCount={completedCount}
+          totalCount={totalCount}
+          date={selectedDate}
+        />
 
         {/* Section Header */}
         <View style={styles.sectionHeader}>
@@ -353,28 +338,6 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.tiny,
     fontSize: 12,
     fontWeight: '700',
-  },
-  summaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: SPACING.base,
-    borderRadius: RADII.card,
-    borderWidth: 1,
-    marginVertical: SPACING.md,
-  },
-  summaryTextWrap: {
-    flex: 1,
-    marginRight: SPACING.base,
-  },
-  summaryTitle: {
-    ...TYPOGRAPHY.headline,
-    fontSize: 17,
-  },
-  summarySubtitle: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 13,
-    marginTop: 4,
   },
   sectionHeader: {
     flexDirection: 'row',
