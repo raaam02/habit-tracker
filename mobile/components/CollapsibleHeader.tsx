@@ -93,8 +93,8 @@ export const CollapsibleHeader: React.FC<CollapsibleHeaderProps> = ({
         </View>
 
         <View style={styles.rightGroup}>
-          {/* Subtle minimal running habit timer chip in header */}
-          {timerHabit && !isModalOpen && (
+          {/* Subtle minimal running habit timer chip in header - only when running */}
+          {timerHabit && isTimerRunning && !isModalOpen && (
             <Pressable
               onPress={() => {
                 triggerHaptic.selection();

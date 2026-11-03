@@ -37,7 +37,7 @@ interface RunningHabitTimerProps {
   habit?: Habit | null;
   initialMinutes?: number;
   onClose?: () => void;
-  onFinish?: (loggedMinutes: number) => void;
+  onFinish?: (loggedMinutes: number, habitId?: string) => void;
 }
 
 export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
@@ -65,6 +65,7 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
   const resumeTimer = useTimerStore((state) => state.resumeTimer);
   const resetTimer = useTimerStore((state) => state.resetTimer);
   const finishTimer = useTimerStore((state) => state.finishTimer);
+  const markGoalReached = useTimerStore((state) => state.markGoalReached);
   const setModalOpen = useTimerStore((state) => state.setModalOpen);
   const toggleFullscreen = useTimerStore((state) => state.toggleFullscreen);
   const getElapsedSeconds = useTimerStore((state) => state.getElapsedSeconds);
@@ -154,7 +155,15 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
       }, 100);
 
       ticker = setInterval(() => {
-        setSeconds(getElapsedSeconds());
+        const curSecs = getElapsedSeconds();
+        setSeconds(curSecs);
+
+        // When goal target is reached, automatically stop running and mark completed
+        if (curSecs >= targetSeconds) {
+          triggerHaptic.success();
+          markGoalReached();
+          cancelBackgroundTimerNotification(activeHabit.id);
+        }
       }, 1000);
     }
 
@@ -177,7 +186,7 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
       if (animLoop) clearInterval(animLoop);
       subscription.remove();
     };
-  }, [isRunning, activeHabit, targetSeconds, targetMins, circumference, getElapsedSeconds]);
+  }, [isRunning, activeHabit, targetSeconds, targetMins, circumference, getElapsedSeconds, markGoalReached]);
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: animatedOffset.value,
@@ -189,6 +198,7 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
     triggerHaptic.light();
     if (isRunning) {
       pauseTimer();
+      cancelBackgroundTimerNotification(activeHabit.id);
     } else {
       resumeTimer();
     }
@@ -198,6 +208,7 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
     triggerHaptic.medium();
     resetTimer();
     setSeconds(0);
+    cancelBackgroundTimerNotification(activeHabit.id);
     animatedOffset.value = withTiming(circumference, {
       duration: 300,
       easing: Easing.out(Easing.cubic),
@@ -206,11 +217,12 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
 
   const handleFinish = () => {
     triggerHaptic.success();
-    const elapsedMinutes = finishTimer();
-    cancelBackgroundTimerNotification(activeHabit.id);
+    const habitId = activeHabit.id;
+    cancelBackgroundTimerNotification(habitId);
+    const { loggedMinutes } = finishTimer();
 
     if (propOnFinish) {
-      propOnFinish(elapsedMinutes);
+      propOnFinish(loggedMinutes, habitId);
     }
     if (propOnClose) {
       propOnClose();

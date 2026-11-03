@@ -19,8 +19,9 @@ interface TimerStoreState {
   pauseTimer: () => void;
   resumeTimer: () => void;
   resetTimer: () => void;
-  finishTimer: () => number; // returns elapsed minutes
+  finishTimer: () => { loggedMinutes: number; habitId: string | null };
   stopAndDiscardTimer: () => void;
+  markGoalReached: () => void;
   setModalOpen: (open: boolean) => void;
   toggleFullscreen: () => void;
   setFullscreen: (fullscreen: boolean) => void;
@@ -42,8 +43,8 @@ export const useTimerStore = create<TimerStoreState>()(
 
       startTimer: (habit: Habit, initialMinutes = 0) => {
         const current = get();
-        // If already running this exact habit, just open the modal
-        if (current.habitId === habit.id && current.lastStartedAt) {
+        // If already tracking this exact habit, just open the modal
+        if (current.habitId === habit.id) {
           set({ isModalOpen: true });
           return;
         }
@@ -102,6 +103,7 @@ export const useTimerStore = create<TimerStoreState>()(
 
       finishTimer: () => {
         const currentSeconds = get().getElapsedSeconds();
+        const habitId = get().habitId;
         const loggedMinutes = Math.max(1, Math.round(currentSeconds / 60));
 
         set({
@@ -115,7 +117,23 @@ export const useTimerStore = create<TimerStoreState>()(
           isFullscreen: false,
         });
 
-        return loggedMinutes;
+        return { loggedMinutes, habitId };
+      },
+
+      markGoalReached: () => {
+        const { isRunning, lastStartedAt, accumulatedSeconds, targetMinutes } = get();
+        if (!isRunning) return;
+
+        const now = Date.now();
+        const delta = lastStartedAt ? Math.floor((now - lastStartedAt) / 1000) : 0;
+        const totalSecs = Math.max(targetMinutes * 60, accumulatedSeconds + delta);
+
+        set({
+          isRunning: false,
+          lastStartedAt: null,
+          accumulatedSeconds: totalSecs,
+          isFinished: true,
+        });
       },
 
       stopAndDiscardTimer: () => {

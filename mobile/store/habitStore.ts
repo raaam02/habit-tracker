@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Habit, HabitLog, AppSettings } from '../types/habit';
 import { getTodayDateString } from '../utils/date';
 import { STARTER_TEMPLATES } from '../constants/templates';
+import { useTimerStore } from './timerStore';
+import { cancelBackgroundTimerNotification } from '../services/notifications';
 
 interface UndoRecord {
   habitId: string;
@@ -90,6 +92,11 @@ export const useHabitStore = create<HabitState>()(
       },
 
       deleteHabit: (id) => {
+        const timerState = useTimerStore.getState();
+        if (timerState.habitId === id) {
+          timerState.stopAndDiscardTimer();
+          cancelBackgroundTimerNotification(id);
+        }
         set((state) => ({
           habits: state.habits.filter((h) => h.id !== id),
           logs: state.logs.filter((l) => l.habitId !== id),
@@ -97,6 +104,11 @@ export const useHabitStore = create<HabitState>()(
       },
 
       archiveHabit: (id) => {
+        const timerState = useTimerStore.getState();
+        if (timerState.habitId === id) {
+          timerState.stopAndDiscardTimer();
+          cancelBackgroundTimerNotification(id);
+        }
         set((state) => ({
           habits: state.habits.map((h) =>
             h.id === id ? { ...h, archivedAt: new Date().toISOString() } : h
@@ -121,8 +133,19 @@ export const useHabitStore = create<HabitState>()(
       },
 
       logHabit: (habitId, date, value, note) => {
-        const { logs } = get();
+        const { habits, logs } = get();
         const existing = logs.find((l) => l.habitId === habitId && l.date === date);
+        const habit = habits.find((h) => h.id === habitId);
+        const isComplete = habit ? value >= habit.target : false;
+
+        // If this habit was actively running on the timer and has now been completed, stop and discard the running timer
+        if (isComplete) {
+          const timerState = useTimerStore.getState();
+          if (timerState.habitId === habitId) {
+            timerState.stopAndDiscardTimer();
+            cancelBackgroundTimerNotification(habitId);
+          }
+        }
 
         // Store undo state
         set({

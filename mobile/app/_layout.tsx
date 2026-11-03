@@ -38,9 +38,10 @@ function AppShell() {
   const selectedDate = useHabitStore((state) => state.selectedDate);
   const timerHabit = useTimerStore((state) => state.habit);
 
-  const handleTimerFinish = (loggedMinutes: number) => {
-    if (timerHabit) {
-      logHabit(timerHabit.id, selectedDate, loggedMinutes);
+  const handleTimerFinish = (loggedMinutes: number, habitId?: string) => {
+    const targetId = habitId || timerHabit?.id;
+    if (targetId) {
+      logHabit(targetId, selectedDate, loggedMinutes);
     }
   };
 
