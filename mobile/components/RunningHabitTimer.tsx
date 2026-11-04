@@ -11,11 +11,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import Svg, { Circle } from 'react-native-svg';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedProps,
   withTiming,
   Easing,
 } from 'react-native-reanimated';
@@ -29,8 +27,7 @@ import {
   showBackgroundTimerNotification,
   cancelBackgroundTimerNotification,
 } from '../services/notifications';
-
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+import { ProgressRing } from './ProgressRing';
 
 interface RunningHabitTimerProps {
   visible?: boolean;
@@ -78,7 +75,6 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
   const [controlsVisible, setControlsVisible] = useState(true);
 
   const lastTickRef = useRef<number>(Date.now());
-  const animatedOffset = useSharedValue(0);
   const controlsOpacity = useSharedValue(1);
 
   // Always reset controls to visible when modal opens or fullscreen mode changes
@@ -117,8 +113,6 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
     ? Math.min(290, width - 80)
     : Math.min(240, width - 80);
   const strokeWidth = 12;
-  const radius = (ringSize - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
 
   // Initialize or start if opened via props
   useEffect(() => {
@@ -132,27 +126,18 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
     if (isVisible && activeHabit) {
       const currentSecs = getElapsedSeconds();
       setSeconds(currentSecs);
-      const ratio = targetSeconds > 0 ? Math.min(1, currentSecs / targetSeconds) : 0;
-      animatedOffset.value = circumference - ratio * circumference;
       lastTickRef.current = Date.now();
     }
-  }, [isVisible, activeHabit, circumference, targetSeconds, getElapsedSeconds]);
+  }, [isVisible, activeHabit, getElapsedSeconds]);
 
   // Live timer ticks and AppState background integration
   useEffect(() => {
     if (!activeHabit) return;
 
     let ticker: any = null;
-    let animLoop: any = null;
 
     if (isRunning) {
       lastTickRef.current = Date.now();
-
-      animLoop = setInterval(() => {
-        const curSecs = getElapsedSeconds();
-        const progress = Math.min(1, Math.max(0, curSecs / targetSeconds));
-        animatedOffset.value = circumference - progress * circumference;
-      }, 100);
 
       ticker = setInterval(() => {
         const curSecs = getElapsedSeconds();
@@ -183,14 +168,9 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
 
     return () => {
       if (ticker) clearInterval(ticker);
-      if (animLoop) clearInterval(animLoop);
       subscription.remove();
     };
-  }, [isRunning, activeHabit, targetSeconds, targetMins, circumference, getElapsedSeconds, markGoalReached]);
-
-  const animatedProps = useAnimatedProps(() => ({
-    strokeDashoffset: animatedOffset.value,
-  }));
+  }, [isRunning, activeHabit, targetSeconds, targetMins, getElapsedSeconds, markGoalReached]);
 
   if (!activeHabit || !isVisible) return null;
 
@@ -209,10 +189,6 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
     resetTimer();
     setSeconds(0);
     cancelBackgroundTimerNotification(activeHabit.id);
-    animatedOffset.value = withTiming(circumference, {
-      duration: 300,
-      easing: Easing.out(Easing.cubic),
-    });
   };
 
   const handleFinish = () => {
@@ -357,66 +333,50 @@ export const RunningHabitTimer: React.FC<RunningHabitTimerProps> = ({
                 { width: ringSize, height: ringSize, borderRadius: ringSize / 2 },
               ]}
             >
-              <Svg width={ringSize} height={ringSize}>
-                {/* Background Track */}
-                <Circle
-                  cx={ringSize / 2}
-                  cy={ringSize / 2}
-                  r={radius}
-                  stroke={theme.surfaceHighlight}
-                  strokeWidth={strokeWidth}
-                  fill="none"
-                />
-                {/* Active Progress */}
-                <AnimatedCircle
-                  cx={ringSize / 2}
-                  cy={ringSize / 2}
-                  r={radius}
-                  stroke={isFinished ? theme.success : activeHabit.color}
-                  strokeWidth={strokeWidth}
-                  strokeDasharray={circumference}
-                  animatedProps={animatedProps}
-                  strokeLinecap="round"
-                  fill="none"
-                  transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
-                />
-              </Svg>
-
-              <View style={styles.centerTimeWrap} pointerEvents="none">
-                <Text
-                  style={[
-                    isFullscreen ? styles.fullscreenTimerText : styles.cardTimerText,
-                    {
-                      color: theme.text,
-                      fontVariant: ['tabular-nums'],
-                    },
-                  ]}
-                >
-                  {formatTime()}
-                </Text>
-                {/* Show status label only if paused or finished - zero clutter while running */}
-                {isFinished ? (
-                  <Animated.Text
+              <ProgressRing
+                progress={targetSeconds > 0 ? Math.min(1, Math.max(0, seconds / targetSeconds)) : 0}
+                size={ringSize}
+                strokeWidth={strokeWidth}
+                strokeColor={isFinished ? theme.success : activeHabit.color}
+                trackColor={theme.surfaceHighlight}
+                animationDuration={200}
+              >
+                <View style={styles.centerTimeWrap} pointerEvents="none">
+                  <Text
                     style={[
-                      styles.statusLabel,
-                      { color: theme.success },
-                      isFullscreen ? controlsAnimStyle : null,
+                      isFullscreen ? styles.fullscreenTimerText : styles.cardTimerText,
+                      {
+                        color: theme.text,
+                        fontVariant: ['tabular-nums'],
+                      },
                     ]}
                   >
-                    Goal Reached! 🎉
-                  </Animated.Text>
-                ) : !isRunning && seconds > 0 ? (
-                  <Animated.Text
-                    style={[
-                      styles.statusLabel,
-                      { color: theme.textMuted },
-                      isFullscreen ? controlsAnimStyle : null,
-                    ]}
-                  >
-                    Paused
-                  </Animated.Text>
-                ) : null}
-              </View>
+                    {formatTime()}
+                  </Text>
+                  {/* Show status label only if paused or finished - zero clutter while running */}
+                  {isFinished ? (
+                    <Animated.Text
+                      style={[
+                        styles.statusLabel,
+                        { color: theme.success },
+                        isFullscreen ? controlsAnimStyle : null,
+                      ]}
+                    >
+                      Goal Reached! 🎉
+                    </Animated.Text>
+                  ) : !isRunning && seconds > 0 ? (
+                    <Animated.Text
+                      style={[
+                        styles.statusLabel,
+                        { color: theme.textMuted },
+                        isFullscreen ? controlsAnimStyle : null,
+                      ]}
+                    >
+                      Paused
+                    </Animated.Text>
+                  ) : null}
+                </View>
+              </ProgressRing>
             </Pressable>
           </View>
 

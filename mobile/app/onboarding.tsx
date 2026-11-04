@@ -17,22 +17,14 @@ import Animated, {
   FadeOut,
   SlideInRight,
   SlideOutLeft,
-  LinearTransition,
 } from 'react-native-reanimated';
 import { useAppTheme } from '../constants/useAppTheme';
 import { useHabitStore } from '../store/habitStore';
 import { STARTER_TEMPLATES } from '../constants/templates';
 import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../constants/theme';
 import { triggerHaptic } from '../services/haptics';
-
-interface FocusArea {
-  id: string;
-  title: string;
-  subtitle: string;
-  icon: string;
-  color: string;
-  templateIds: string[];
-}
+import { FocusArea, FocusAreaCard } from '../components/FocusAreaCard';
+import { TemplateSelectCard } from '../components/TemplateSelectCard';
 
 const FOCUS_AREAS: FocusArea[] = [
   {
@@ -92,7 +84,6 @@ export default function OnboardingScreen() {
   };
 
   const handleToggleFocus = (focus: FocusArea) => {
-    triggerHaptic.selection();
     let nextFocusIds: string[];
     if (selectedFocusIds.includes(focus.id)) {
       if (selectedFocusIds.length > 1) {
@@ -115,7 +106,6 @@ export default function OnboardingScreen() {
   };
 
   const toggleTemplate = (templateId: string) => {
-    triggerHaptic.selection();
     if (selectedTemplateIds.includes(templateId)) {
       setSelectedTemplateIds(selectedTemplateIds.filter((id) => id !== templateId));
     } else {
@@ -165,7 +155,7 @@ export default function OnboardingScreen() {
             ))}
           </View>
 
-          {/* STEP 1: Name Input (Mobbin-style warm welcome) */}
+          {/* STEP 1: Name Input (Warm welcome) */}
           {step === 1 && (
             <Animated.View
               entering={FadeIn.duration(250)}
@@ -238,53 +228,14 @@ export default function OnboardingScreen() {
               </Text>
 
               <View style={styles.focusList}>
-                {FOCUS_AREAS.map((item) => {
-                  const isSelected = selectedFocusIds.includes(item.id);
-                  return (
-                    <Pressable
-                      key={item.id}
-                      onPress={() => handleToggleFocus(item)}
-                      style={({ pressed }) => [
-                        styles.focusCard,
-                        {
-                          backgroundColor: isSelected ? theme.elevated : theme.surface,
-                          borderColor: isSelected ? item.color : theme.border,
-                          transform: [{ scale: pressed ? 0.985 : 1 }],
-                        },
-                      ]}
-                      accessibilityRole="button"
-                      accessibilityLabel={item.title}
-                    >
-                      <View
-                        style={[
-                          styles.focusIconWrap,
-                          { backgroundColor: `${item.color}18` },
-                        ]}
-                      >
-                        <Ionicons name={item.icon as any} size={22} color={item.color} />
-                      </View>
-                      <View style={styles.focusTextWrap}>
-                        <Text style={[styles.focusTitle, { color: theme.text }]}>
-                          {item.title}
-                        </Text>
-                        <Text style={[styles.focusSubtitle, { color: theme.textMuted }]}>
-                          {item.subtitle}
-                        </Text>
-                      </View>
-                      <View
-                        style={[
-                          styles.focusCheck,
-                          {
-                            backgroundColor: isSelected ? item.color : 'transparent',
-                            borderColor: isSelected ? item.color : theme.borderLight,
-                          },
-                        ]}
-                      >
-                        {isSelected && <Ionicons name="checkmark" size={15} color="#FFFFFF" />}
-                      </View>
-                    </Pressable>
-                  );
-                })}
+                {FOCUS_AREAS.map((item) => (
+                  <FocusAreaCard
+                    key={item.id}
+                    item={item}
+                    isSelected={selectedFocusIds.includes(item.id)}
+                    onToggle={handleToggleFocus}
+                  />
+                ))}
               </View>
 
               <Pressable
@@ -322,60 +273,14 @@ export default function OnboardingScreen() {
                 contentContainerStyle={styles.templateScrollContent}
                 showsVerticalScrollIndicator={false}
               >
-                {STARTER_TEMPLATES.map((tpl) => {
-                  const isChecked = selectedTemplateIds.includes(tpl.templateId);
-                  return (
-                    <Pressable
-                      key={tpl.templateId}
-                      onPress={() => toggleTemplate(tpl.templateId)}
-                      style={({ pressed }) => [
-                        styles.templateRow,
-                        {
-                          backgroundColor: isChecked ? theme.elevated : theme.surface,
-                          borderColor: isChecked ? tpl.color : theme.border,
-                          transform: [{ scale: pressed ? 0.985 : 1 }],
-                        },
-                      ]}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: isChecked }}
-                      accessibilityLabel={tpl.name}
-                    >
-                      <View
-                        style={[
-                          styles.templateIconWrap,
-                          { backgroundColor: `${tpl.color}18` },
-                        ]}
-                      >
-                        <Ionicons name={tpl.icon as any} size={20} color={tpl.color} />
-                      </View>
-
-                      <View style={styles.templateTextWrap}>
-                        <Text style={[styles.templateName, { color: theme.text }]} numberOfLines={1}>
-                          {tpl.name}
-                        </Text>
-                        <Text style={[styles.templateMeta, { color: theme.textMuted }]}>
-                          {tpl.type === 'check'
-                            ? 'Daily check'
-                            : tpl.type === 'count'
-                            ? `${tpl.target} times`
-                            : `${tpl.target} mins`}
-                        </Text>
-                      </View>
-
-                      <View
-                        style={[
-                          styles.templateCheck,
-                          {
-                            backgroundColor: isChecked ? tpl.color : 'transparent',
-                            borderColor: isChecked ? tpl.color : theme.borderLight,
-                          },
-                        ]}
-                      >
-                        {isChecked && <Ionicons name="checkmark" size={15} color="#FFFFFF" />}
-                      </View>
-                    </Pressable>
-                  );
-                })}
+                {STARTER_TEMPLATES.map((tpl) => (
+                  <TemplateSelectCard
+                    key={tpl.templateId}
+                    template={tpl}
+                    isSelected={selectedTemplateIds.includes(tpl.templateId)}
+                    onToggle={toggleTemplate}
+                  />
+                ))}
               </ScrollView>
 
               <Pressable
@@ -482,87 +387,12 @@ const styles = StyleSheet.create({
     flex: 1,
     marginBottom: SPACING.md,
   },
-  focusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.base,
-    borderRadius: RADII.card,
-    borderWidth: 1.5,
-    minHeight: 74,
-  },
-  focusIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  focusTextWrap: {
-    flex: 1,
-    marginRight: SPACING.sm,
-  },
-  focusTitle: {
-    ...TYPOGRAPHY.headline,
-    fontSize: 16,
-  },
-  focusSubtitle: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 12,
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  focusCheck: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   templateScroll: {
     flex: 1,
     marginBottom: SPACING.md,
   },
   templateScrollContent: {
     gap: SPACING.sm,
-  },
-  templateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderRadius: RADII.card,
-    borderWidth: 1.5,
-    minHeight: 64,
-  },
-  templateIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  templateTextWrap: {
-    flex: 1,
-  },
-  templateName: {
-    ...TYPOGRAPHY.headline,
-    fontSize: 15,
-  },
-  templateMeta: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  templateCheck: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: SPACING.sm,
   },
   primaryBtn: {
     flexDirection: 'row',

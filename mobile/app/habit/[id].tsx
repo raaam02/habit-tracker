@@ -15,8 +15,9 @@ import { useHabitStore } from '../../store/habitStore';
 import { computeStreakStats } from '../../utils/streaks';
 import { YearlyHeatmap } from '../../components/YearlyHeatmap';
 import { HabitSheet } from '../../components/HabitSheet';
+import { StatCard } from '../../components/StatCard';
 import { getTodayDateString } from '../../utils/date';
-import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../../constants/theme';
+import { SPACING, RADII, TYPOGRAPHY } from '../../constants/theme';
 import { triggerHaptic } from '../../services/haptics';
 
 export default function HabitDetailRoute() {
@@ -107,38 +108,32 @@ export default function HabitDetailRoute() {
 
         {/* 4 Stats Cards */}
         <View style={styles.statsGrid}>
-          <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.statIconRow}>
-              <Ionicons
-                name="flame"
-                size={20}
-                color={stats.isAtRisk ? theme.warning : '#F97316'}
-              />
-              {stats.isAtRisk && (
-                <Text style={[styles.riskTag, { color: theme.warning }]}>At Risk</Text>
-              )}
-            </View>
-            <Text style={[styles.statValue, { color: theme.text }]}>{stats.currentStreak}</Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Current Streak</Text>
-          </View>
-
-          <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Ionicons name="trophy" size={20} color="#FBBF24" />
-            <Text style={[styles.statValue, { color: theme.text }]}>{stats.bestStreak}</Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>Best Streak</Text>
-          </View>
-
-          <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Ionicons name="trending-up" size={20} color={theme.accent} />
-            <Text style={[styles.statValue, { color: theme.text }]}>{stats.completionRate7d}%</Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>7-Day Rate</Text>
-          </View>
-
-          <View style={[styles.statBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Ionicons name="calendar-outline" size={20} color={theme.success} />
-            <Text style={[styles.statValue, { color: theme.text }]}>{stats.completionRate30d}%</Text>
-            <Text style={[styles.statLabel, { color: theme.textMuted }]}>30-Day Rate</Text>
-          </View>
+          <StatCard
+            icon="flame"
+            iconColor={stats.isAtRisk ? theme.warning : '#F97316'}
+            value={stats.currentStreak}
+            label="Current Streak"
+            badge={stats.isAtRisk ? 'At Risk' : undefined}
+            badgeColor={theme.warning}
+          />
+          <StatCard
+            icon="trophy"
+            iconColor="#FBBF24"
+            value={stats.bestStreak}
+            label="Best Streak"
+          />
+          <StatCard
+            icon="trending-up"
+            iconColor={theme.accent}
+            value={`${stats.completionRate7d}%`}
+            label="7-Day Rate"
+          />
+          <StatCard
+            icon="calendar-outline"
+            iconColor={theme.success}
+            value={`${stats.completionRate30d}%`}
+            label="30-Day Rate"
+          />
         </View>
 
         {/* Heatmap */}
@@ -213,32 +208,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: SPACING.sm,
     marginBottom: SPACING.sm,
-  },
-  statBox: {
-    flex: 1,
-    minWidth: '46%',
-    padding: SPACING.md,
-    borderRadius: RADII.card,
-    borderWidth: 1,
-  },
-  statIconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  riskTag: {
-    ...TYPOGRAPHY.tiny,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  statValue: {
-    ...TYPOGRAPHY.title1,
-    fontSize: 26,
-    marginVertical: 4,
-  },
-  statLabel: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 12,
   },
   errorContainer: {
     flex: 1,

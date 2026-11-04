@@ -7,7 +7,6 @@ import {
   Pressable,
   TextInput,
   StyleSheet,
-  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,7 +15,9 @@ import { useAppTheme } from '../constants/useAppTheme';
 import { useHabitStore } from '../store/habitStore';
 import { computeStreakStats } from '../utils/streaks';
 import { YearlyHeatmap } from './YearlyHeatmap';
-import { getTodayDateString, formatHeaderDate } from '../utils/date';
+import { StatCard } from './StatCard';
+import { HabitNoteItem } from './HabitNoteItem';
+import { getTodayDateString } from '../utils/date';
 import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../constants/theme';
 import { triggerHaptic } from '../services/haptics';
 
@@ -135,38 +136,36 @@ export const HabitDetailModal: React.FC<HabitDetailModalProps> = ({
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             {/* 4 Streak Stat Cards */}
             <View style={styles.statsGrid}>
-              <View style={[styles.statCard, { backgroundColor: theme.elevated, borderColor: theme.border }]}>
-                <View style={styles.statIconRow}>
-                  <Ionicons
-                    name="flame"
-                    size={20}
-                    color={stats.isAtRisk ? theme.warning : '#F97316'}
-                  />
-                  {stats.isAtRisk && (
-                    <Text style={[styles.riskLabel, { color: theme.warning }]}>At Risk</Text>
-                  )}
-                </View>
-                <Text style={[styles.statValue, { color: theme.text }]}>{stats.currentStreak}</Text>
-                <Text style={[styles.statLabel, { color: theme.textMuted }]}>Current Streak</Text>
-              </View>
-
-              <View style={[styles.statCard, { backgroundColor: theme.elevated, borderColor: theme.border }]}>
-                <Ionicons name="trophy" size={20} color="#FBBF24" />
-                <Text style={[styles.statValue, { color: theme.text }]}>{stats.bestStreak}</Text>
-                <Text style={[styles.statLabel, { color: theme.textMuted }]}>Best Streak</Text>
-              </View>
-
-              <View style={[styles.statCard, { backgroundColor: theme.elevated, borderColor: theme.border }]}>
-                <Ionicons name="trending-up" size={20} color={theme.accent} />
-                <Text style={[styles.statValue, { color: theme.text }]}>{stats.completionRate7d}%</Text>
-                <Text style={[styles.statLabel, { color: theme.textMuted }]}>7-Day Rate</Text>
-              </View>
-
-              <View style={[styles.statCard, { backgroundColor: theme.elevated, borderColor: theme.border }]}>
-                <Ionicons name="calendar-outline" size={20} color={theme.success} />
-                <Text style={[styles.statValue, { color: theme.text }]}>{stats.completionRate30d}%</Text>
-                <Text style={[styles.statLabel, { color: theme.textMuted }]}>30-Day Rate</Text>
-              </View>
+              <StatCard
+                icon="flame"
+                iconColor={stats.isAtRisk ? theme.warning : '#F97316'}
+                value={stats.currentStreak}
+                label="Current Streak"
+                badge={stats.isAtRisk ? 'At Risk' : undefined}
+                badgeColor={theme.warning}
+                variant="elevated"
+              />
+              <StatCard
+                icon="trophy"
+                iconColor="#FBBF24"
+                value={stats.bestStreak}
+                label="Best Streak"
+                variant="elevated"
+              />
+              <StatCard
+                icon="trending-up"
+                iconColor={theme.accent}
+                value={`${stats.completionRate7d}%`}
+                label="7-Day Rate"
+                variant="elevated"
+              />
+              <StatCard
+                icon="calendar-outline"
+                iconColor={theme.success}
+                value={`${stats.completionRate30d}%`}
+                label="30-Day Rate"
+                variant="elevated"
+              />
             </View>
 
             {/* Per-habit Heatmap */}
@@ -227,26 +226,7 @@ export const HabitDetailModal: React.FC<HabitDetailModalProps> = ({
                   habitLogs
                     .filter((l) => l.note)
                     .map((item) => (
-                      <View
-                        key={item.id}
-                        style={[
-                          styles.noteItem,
-                          {
-                            backgroundColor: theme.elevated,
-                            borderColor: theme.border,
-                          },
-                        ]}
-                      >
-                        <View style={styles.noteMetaRow}>
-                          <Text style={[styles.noteDate, { color: theme.textMuted }]}>
-                            {formatHeaderDate(item.date)}
-                          </Text>
-                          <Text style={[styles.noteValue, { color: theme.accent }]}>
-                            {item.value} {habit.type === 'minutes' ? 'min' : ''}
-                          </Text>
-                        </View>
-                        <Text style={[styles.noteText, { color: theme.text }]}>{item.note}</Text>
-                      </View>
+                      <HabitNoteItem key={item.id} log={item} habit={habit} />
                     ))
                 )}
               </View>
@@ -341,32 +321,6 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     marginBottom: SPACING.md,
   },
-  statCard: {
-    flex: 1,
-    minWidth: '46%',
-    padding: SPACING.md,
-    borderRadius: RADII.card,
-    borderWidth: 1,
-  },
-  statIconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  riskLabel: {
-    ...TYPOGRAPHY.tiny,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  statValue: {
-    ...TYPOGRAPHY.title1,
-    fontSize: 26,
-    marginVertical: 4,
-  },
-  statLabel: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 12,
-  },
   notesSection: {
     padding: SPACING.base,
     borderRadius: RADII.card,
@@ -408,27 +362,5 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     textAlign: 'center',
     paddingVertical: SPACING.base,
-  },
-  noteItem: {
-    padding: SPACING.md,
-    borderRadius: RADII.md,
-    borderWidth: 1,
-  },
-  noteMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  noteDate: {
-    ...TYPOGRAPHY.tiny,
-    fontWeight: '600',
-  },
-  noteValue: {
-    ...TYPOGRAPHY.tiny,
-    fontWeight: '700',
-  },
-  noteText: {
-    ...TYPOGRAPHY.body,
-    fontSize: 13,
   },
 });

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   Pressable,
   Switch,
   StyleSheet,
@@ -21,8 +20,21 @@ import { exportHabitData, pickAndImportData } from '../../services/backup';
 import { syncHabitReminders, triggerTestNotification } from '../../services/notifications';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { CollapsibleHeader } from '../../components/CollapsibleHeader';
+import { SettingCard, SettingRow } from '../../components/SettingCard';
+import { SegmentedControl, SegmentOption } from '../../components/SegmentedControl';
 import { SPACING, RADII, TYPOGRAPHY, TOUCH_TARGET } from '../../constants/theme';
 import { triggerHaptic } from '../../services/haptics';
+
+const THEME_OPTIONS: SegmentOption<ThemePreference>[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
+const WEEK_START_OPTIONS: SegmentOption<0 | 1>[] = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+];
 
 export default function SettingsScreen() {
   const { theme, themePreference, setThemePreference } = useAppTheme();
@@ -139,143 +151,77 @@ export default function SettingsScreen() {
         )}
 
         {/* Appearance */}
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={[styles.cardTitle, { color: theme.text }]}>Appearance</Text>
-
+        <SettingCard title="Appearance">
           <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>Theme</Text>
-          <View style={[styles.segment, { backgroundColor: theme.elevated }]}>
-            {(['system', 'light', 'dark'] as ThemePreference[]).map((pref) => {
-              const isSelected = themePreference === pref;
-              return (
-                <Pressable
-                  key={pref}
-                  onPress={() => {
-                    triggerHaptic.selection();
-                    setThemePreference(pref);
-                  }}
-                  style={[
-                    styles.segmentBtn,
-                    { backgroundColor: isSelected ? theme.accent : 'transparent' },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${pref} theme`}
-                >
-                  <Text
-                    style={[
-                      styles.segmentText,
-                      {
-                        color: isSelected ? '#FFFFFF' : theme.textMuted,
-                        fontWeight: isSelected ? '700' : '500',
-                      },
-                    ]}
-                  >
-                    {pref === 'system' ? 'System' : pref === 'light' ? 'Light' : 'Dark'}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <SegmentedControl
+            options={THEME_OPTIONS}
+            value={themePreference}
+            onChange={setThemePreference}
+          />
 
-          <View style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.border, marginTop: SPACING.base, paddingTop: SPACING.md }]}>
-            <View style={styles.rowLabelWrap}>
-              <Text style={[styles.rowTitle, { color: theme.text }]}>Reduce motion</Text>
-              <Text style={[styles.rowSub, { color: theme.textMuted }]}>
-                Replaces springs with subtle fades
-              </Text>
-            </View>
-            <Switch
-              value={settings.reduceMotion}
-              onValueChange={handleToggleReduceMotion}
-              trackColor={{ false: theme.border, true: theme.accent }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-        </View>
+          <SettingRow
+            title="Reduce motion"
+            subtitle="Replaces springs with subtle fades"
+            borderTop
+            rightControl={
+              <Switch
+                value={settings.reduceMotion}
+                onValueChange={handleToggleReduceMotion}
+                trackColor={{ false: theme.border, true: theme.accent }}
+                thumbColor="#FFFFFF"
+              />
+            }
+          />
+        </SettingCard>
 
         {/* Calendar & Reminders */}
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={[styles.cardTitle, { color: theme.text }]}>Schedule & Reminders</Text>
-
+        <SettingCard title="Schedule & Reminders">
           <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>First day of week</Text>
-          <View style={[styles.segment, { backgroundColor: theme.elevated }]}>
-            {[
-              { val: 0, label: 'Sunday' },
-              { val: 1, label: 'Monday' },
-            ].map((opt) => {
-              const isSelected = settings.weekStartDay === opt.val;
-              return (
+          <SegmentedControl
+            options={WEEK_START_OPTIONS}
+            value={settings.weekStartDay}
+            onChange={(val) => updateSettings({ weekStartDay: val })}
+          />
+
+          <SettingRow
+            title="Daily reminders"
+            subtitle="Scheduled notifications on device"
+            borderTop
+            rightControl={
+              <Switch
+                value={settings.remindersEnabled}
+                onValueChange={handleToggleReminders}
+                trackColor={{ false: theme.border, true: theme.accent }}
+                thumbColor="#FFFFFF"
+              />
+            }
+          />
+
+          {settings.remindersEnabled && (
+            <SettingRow
+              title="Test reminder"
+              subtitle="Trigger an immediate notification to test channel"
+              borderTop
+              rightControl={
                 <Pressable
-                  key={opt.val}
-                  onPress={() => {
-                    triggerHaptic.selection();
-                    updateSettings({ weekStartDay: opt.val as 0 | 1 });
-                  }}
-                  style={[
-                    styles.segmentBtn,
-                    { backgroundColor: isSelected ? theme.accent : 'transparent' },
+                  onPress={handleTestNotification}
+                  style={({ pressed }) => [
+                    styles.testNotifBtn,
+                    { backgroundColor: pressed ? theme.surfaceHighlight : theme.accentMuted },
                   ]}
                   accessibilityRole="button"
-                  accessibilityLabel={`Start week on ${opt.label}`}
+                  accessibilityLabel="Send test reminder"
                 >
-                  <Text
-                    style={[
-                      styles.segmentText,
-                      {
-                        color: isSelected ? '#FFFFFF' : theme.textMuted,
-                        fontWeight: isSelected ? '700' : '500',
-                      },
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
+                  <Ionicons name="notifications-outline" size={14} color={theme.accent} />
+                  <Text style={[styles.testNotifBtnText, { color: theme.accent }]}>Send test</Text>
                 </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.border, marginTop: SPACING.base, paddingTop: SPACING.md }]}>
-            <View style={styles.rowLabelWrap}>
-              <Text style={[styles.rowTitle, { color: theme.text }]}>Daily reminders</Text>
-              <Text style={[styles.rowSub, { color: theme.textMuted }]}>
-                Scheduled notifications on device
-              </Text>
-            </View>
-            <Switch
-              value={settings.remindersEnabled}
-              onValueChange={handleToggleReminders}
-              trackColor={{ false: theme.border, true: theme.accent }}
-              thumbColor="#FFFFFF"
+              }
             />
-          </View>
-
-          {/* Test Notification Row */}
-          {settings.remindersEnabled && (
-            <View style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.border, marginTop: SPACING.md, paddingTop: SPACING.md }]}>
-              <View style={styles.rowLabelWrap}>
-                <Text style={[styles.rowTitle, { color: theme.text }]}>Test reminder</Text>
-                <Text style={[styles.rowSub, { color: theme.textMuted }]}>
-                  Trigger an immediate notification to test channel
-                </Text>
-              </View>
-              <Pressable
-                onPress={handleTestNotification}
-                style={({ pressed }) => [
-                  styles.testNotifBtn,
-                  { backgroundColor: pressed ? theme.surfaceHighlight : theme.accentMuted },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Send test reminder"
-              >
-                <Ionicons name="notifications-outline" size={14} color={theme.accent} />
-                <Text style={[styles.testNotifBtnText, { color: theme.accent }]}>Send test</Text>
-              </Pressable>
-            </View>
           )}
-        </View>
+        </SettingCard>
 
         {/* Backup & Restore */}
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={[styles.cardTitle, { color: theme.text }]}>Backup & Data</Text>
+        <SettingCard title="Backup & Data">
           <Text style={[styles.cardDesc, { color: theme.textMuted }]}>
             Local-first storage. Export JSON files to easily migrate data across devices.
           </Text>
@@ -320,7 +266,7 @@ export default function SettingsScreen() {
             </Pressable>
           </View>
 
-          {/* Subtle Danger Reset Row (Soft red tint, understated and tasteful) */}
+          {/* Subtle Danger Reset Row */}
           <Pressable
             onPress={() => {
               triggerHaptic.medium();
@@ -344,7 +290,7 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={15} color={theme.danger} style={{ opacity: 0.7 }} />
           </Pressable>
-        </View>
+        </SettingCard>
 
         {/* Footer */}
         <View style={styles.footer}>
@@ -381,18 +327,6 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.sm,
     paddingBottom: 110,
   },
-  header: {
-    marginBottom: SPACING.md,
-  },
-  title: {
-    ...TYPOGRAPHY.title1,
-    fontSize: 28,
-  },
-  subtitle: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 14,
-    marginTop: 2,
-  },
   toast: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -407,17 +341,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flex: 1,
   },
-  card: {
-    padding: SPACING.base,
-    borderRadius: RADII.card,
-    borderWidth: 1,
-    marginBottom: SPACING.base,
-  },
-  cardTitle: {
-    ...TYPOGRAPHY.headline,
-    fontSize: 17,
-    marginBottom: SPACING.sm,
-  },
   cardDesc: {
     ...TYPOGRAPHY.body,
     fontSize: 13,
@@ -429,41 +352,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 6,
-  },
-  segment: {
-    flexDirection: 'row',
-    borderRadius: RADII.card,
-    padding: 3,
-  },
-  segmentBtn: {
-    flex: 1,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADII.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 38,
-  },
-  segmentText: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 13,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  rowLabelWrap: {
-    flex: 1,
-    marginRight: SPACING.base,
-  },
-  rowTitle: {
-    ...TYPOGRAPHY.headline,
-    fontSize: 15,
-  },
-  rowSub: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 12,
-    marginTop: 2,
   },
   testNotifBtn: {
     flexDirection: 'row',
