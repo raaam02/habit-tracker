@@ -221,7 +221,7 @@ export default function TodayScreen() {
             }}
           />
         ) : (
-          <Animated.View layout={LinearTransition.springify().damping(22).stiffness(200)}>
+          <Animated.View layout={LinearTransition.duration(200)}>
             {scheduledHabits.map((habit, index) => {
               const habitLog = logs.find((l) => l.habitId === habit.id && l.date === selectedDate);
               const streakStats = computeStreakStats(habit, logs, selectedDate);

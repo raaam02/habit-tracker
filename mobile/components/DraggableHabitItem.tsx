@@ -5,10 +5,10 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
   withTiming,
-  withSpring,
   runOnJS,
   LinearTransition,
   SharedValue,
+  Easing,
 } from 'react-native-reanimated';
 import { Habit } from '../types/habit';
 import { useAppTheme } from '../constants/useAppTheme';
@@ -105,8 +105,8 @@ export const DraggableHabitItem: React.FC<DraggableHabitItemProps> = ({
           { translateY: dragTranslationY.value },
           {
             scale: isPressing.value
-              ? withSpring(1.04, { damping: 15, stiffness: 280 })
-              : withTiming(1, { duration: 140 }),
+              ? withTiming(1.02, { duration: 120 })
+              : withTiming(1, { duration: 120 }),
           },
         ],
         zIndex: 100,
@@ -136,7 +136,12 @@ export const DraggableHabitItem: React.FC<DraggableHabitItemProps> = ({
 
     return {
       transform: [
-        { translateY: withSpring(shiftY, { damping: 20, stiffness: 240 }) },
+        {
+          translateY: withTiming(shiftY, {
+            duration: 160,
+            easing: Easing.out(Easing.cubic),
+          }),
+        },
         { scale: 1 },
       ],
       zIndex: 1,

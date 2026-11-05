@@ -40,7 +40,7 @@ export const DailySummaryCard: React.FC<DailySummaryCardProps> = ({
 
   return (
     <Animated.View
-      layout={LinearTransition.springify().damping(22).stiffness(200)}
+      layout={LinearTransition.duration(200)}
       style={[
         styles.cardContainer,
         {

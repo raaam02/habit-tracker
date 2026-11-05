@@ -5,19 +5,19 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
   withSequence,
   runOnJS,
   interpolate,
   Extrapolation,
   LinearTransition,
+  Easing,
 } from 'react-native-reanimated';
 import { Habit, HabitLog, StreakStats } from '../types/habit';
 import { useAppTheme } from '../constants/useAppTheme';
 import { useHabitStore } from '../store/habitStore';
 import { triggerHaptic } from '../services/haptics';
-import { SPACING, RADII, TYPOGRAPHY, SPRING_CONFIG } from '../constants/theme';
+import { SPACING, RADII, TYPOGRAPHY } from '../constants/theme';
 import { isDayCompleted, isDaySkipped } from '../utils/streaks';
 
 interface HabitCardProps {
@@ -141,7 +141,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({
   };
 
   const handlePressOut = () => {
-    pressScale.value = withSpring(1, SPRING_CONFIG);
+    pressScale.value = withTiming(1, { duration: 120 });
   };
 
   const handleCardPress = () => {
@@ -171,11 +171,14 @@ export const HabitCard: React.FC<HabitCardProps> = ({
   };
 
   const handleResetSwipe = () => {
-    translateX.value = withSpring(0, SPRING_CONFIG);
+    translateX.value = withTiming(0, {
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+    });
   };
 
   return (
-    <Animated.View layout={LinearTransition.springify().damping(22).stiffness(200)} style={styles.outerContainer}>
+    <Animated.View layout={LinearTransition.duration(200)} style={styles.outerContainer}>
       {/* Background layer for Swipe Right (Complete) */}
       <Animated.View style={[styles.completeBackground, rightSwipeStyle]}>
         <View style={styles.completeIconWrap}>

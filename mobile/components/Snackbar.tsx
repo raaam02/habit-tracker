@@ -5,10 +5,8 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
   runOnJS,
-  interpolate,
-  Extrapolation,
+  Easing,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,7 +24,7 @@ export const Snackbar: React.FC = () => {
   const habits = useHabitStore((state) => state.habits);
 
   const translateX = useSharedValue(0);
-  const translateY = useSharedValue(40);
+  const translateY = useSharedValue(24);
   const opacity = useSharedValue(0);
 
   const habit = habits.find((h) => h.id === undoRecord?.habitId);
@@ -44,17 +42,23 @@ export const Snackbar: React.FC = () => {
   useEffect(() => {
     if (undoRecord) {
       translateX.value = 0;
-      translateY.value = 40;
+      translateY.value = 24;
       opacity.value = 0;
 
-      // Animate in smoothly
-      translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
-      opacity.value = withTiming(1, { duration: 200 });
+      // Animate in smoothly with clean ease-out timing (no rubber-band bounce)
+      translateY.value = withTiming(0, {
+        duration: 200,
+        easing: Easing.out(Easing.cubic),
+      });
+      opacity.value = withTiming(1, { duration: 180 });
 
       // Dismiss automatically after 5000ms
       const timer = setTimeout(() => {
-        translateY.value = withTiming(30, { duration: 150 });
-        opacity.value = withTiming(0, { duration: 150 }, (finished) => {
+        translateY.value = withTiming(24, {
+          duration: 160,
+          easing: Easing.in(Easing.cubic),
+        });
+        opacity.value = withTiming(0, { duration: 160 }, (finished) => {
           if (finished) {
             runOnJS(clearUndo)();
           }
@@ -64,7 +68,7 @@ export const Snackbar: React.FC = () => {
       return () => clearTimeout(timer);
     } else {
       opacity.value = 0;
-      translateY.value = 40;
+      translateY.value = 24;
       translateX.value = 0;
     }
   }, [undoRecord, translateX, translateY, opacity, clearUndo]);
@@ -72,8 +76,11 @@ export const Snackbar: React.FC = () => {
   const handleUndo = () => {
     triggerHaptic.medium();
     undoLastAction();
-    translateY.value = withTiming(30, { duration: 150 });
-    opacity.value = withTiming(0, { duration: 150 }, (finished) => {
+    translateY.value = withTiming(24, {
+      duration: 160,
+      easing: Easing.in(Easing.cubic),
+    });
+    opacity.value = withTiming(0, { duration: 160 }, (finished) => {
       if (finished) {
         runOnJS(clearUndo)();
       }
@@ -95,7 +102,7 @@ export const Snackbar: React.FC = () => {
       const isSwipedHorizontal = Math.abs(e.translationX) > 60 || Math.abs(e.velocityX) > 400;
 
       if (isSwipedDown) {
-        translateY.value = withTiming(80, { duration: 140 });
+        translateY.value = withTiming(60, { duration: 140 });
         opacity.value = withTiming(0, { duration: 140 }, (finished) => {
           if (finished) {
             runOnJS(handleDismiss)();
@@ -110,19 +117,19 @@ export const Snackbar: React.FC = () => {
           }
         });
       } else {
-        // Return to original resting position
-        translateX.value = withSpring(0, { damping: 22, stiffness: 280 });
-        translateY.value = withSpring(0, { damping: 22, stiffness: 280 });
+        // Return to resting position crisply without rubber-band bounce
+        translateX.value = withTiming(0, {
+          duration: 180,
+          easing: Easing.out(Easing.cubic),
+        });
+        translateY.value = withTiming(0, {
+          duration: 180,
+          easing: Easing.out(Easing.cubic),
+        });
       }
     });
 
   const animatedStyle = useAnimatedStyle(() => {
-    const rotate = interpolate(
-      translateX.value,
-      [-150, 150],
-      [-5, 5],
-      Extrapolation.CLAMP
-    );
     const dragDistance = Math.abs(translateX.value) + translateY.value;
     const dragFactor = Math.min(1, dragDistance / 100);
     const dynOpacity = opacity.value * (1 - dragFactor * 0.4);
@@ -132,7 +139,6 @@ export const Snackbar: React.FC = () => {
       transform: [
         { translateY: translateY.value },
         { translateX: translateX.value },
-        { rotate: `${rotate}deg` },
       ],
     };
   });
@@ -152,16 +158,6 @@ export const Snackbar: React.FC = () => {
             animatedStyle,
           ]}
         >
-          {/* Subtle Swipe Handle Cue */}
-          <View style={styles.topCueWrap}>
-            <View
-              style={[
-                styles.swipeCue,
-                { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.15)' },
-              ]}
-            />
-          </View>
-
           <View style={styles.innerRow}>
             <View style={styles.content}>
               <Ionicons
@@ -214,22 +210,12 @@ const styles = StyleSheet.create({
     borderRadius: RADII.card,
     borderWidth: 1,
     paddingHorizontal: SPACING.base,
-    paddingTop: 6,
-    paddingBottom: SPACING.sm + 2,
+    paddingVertical: SPACING.md,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.28,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  topCueWrap: {
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  swipeCue: {
-    width: 28,
-    height: 3,
-    borderRadius: 2,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 8,
   },
   innerRow: {
     flexDirection: 'row',

@@ -19,10 +19,9 @@ export const Celebration: React.FC<CelebrationProps> = ({ visible, onDismiss }) 
     if (visible) {
       triggerHaptic.success();
       Animated.parallel([
-        Animated.spring(scale, {
+        Animated.timing(scale, {
           toValue: 1,
-          damping: 14,
-          stiffness: 160,
+          duration: 220,
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
